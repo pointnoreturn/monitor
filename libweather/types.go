@@ -9,9 +9,11 @@ const (
 	WeatherDrizzle      WeatherMain = "Drizzle"
 	WeatherRain         WeatherMain = "Rain"
 	WeatherSnow         WeatherMain = "Snow"
-	WeatherAtmosphere   WeatherMain = "Atmosphere"
+	WeatherAtmosphere   WeatherMain = "Atmosphere" // mist, fog, etc
 	WeatherClear        WeatherMain = "Clear"
 	WeatherClouds       WeatherMain = "Clouds"
+	WeatherTornado      WeatherMain = "Tornado" // rare
+	WeatherSquall       WeatherMain = "Squall"  // rare
 )
 
 // core weather struct

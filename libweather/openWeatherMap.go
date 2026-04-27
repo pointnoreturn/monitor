@@ -121,21 +121,24 @@ func (o *OpenWeatherMap) GetWeather(ctx context.Context) (Weather, error) {
 		Cloudiness:         data.Clouds.All,
 	}
 
+	readIntensity := func(data map[string]float32) float32 {
+		if rain1h, ok := data["1h"]; ok {
+			w.RainIntensity = rain1h
+		} else if rain3h, ok := data["3h"]; ok {
+			w.RainIntensity = rain3h / 3
+		}
+		return 0.1
+	}
+
 	// rain/snow
 	if data.Rain != nil {
-		w.RainIntensity = data.Rain["1h"]
 		w.IsRain = true
+		w.RainIntensity = readIntensity(data.Rain)
 	}
 	if data.Snow != nil {
-		w.SnowIntensity = data.Snow["1h"]
+		w.SnowIntensity = readIntensity(data.Snow)
 		w.IsSnow = true
 	}
-
-	// heuristic rain detection
-	likelyRain := w.RainIntensity > 0 ||
-		(w.Cloudiness > 85 && w.HumidityPercentage > 85 && data.Main.Pressure < 1000)
-
-	w.IsRain = likelyRain
 
 	return w, nil
 }
