@@ -1,9 +1,10 @@
 module github.com/pointnoreturn/snake
 
-go 1.25.7
+go 1.26.2
 
 require (
 	github.com/grandcat/zeroconf v1.0.0
+	github.com/joho/godotenv v1.5.1
 	github.com/lmatte7/gomesh v0.2.1
 	google.golang.org/protobuf v1.36.11
 )
