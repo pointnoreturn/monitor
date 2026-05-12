@@ -13,25 +13,20 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// TODO: meshtastic stuff here on streamer primitive?
+// TODO: meshtastic stuff here on protoStream primitive?
 const start1 = byte(0x94)
 const start2 = byte(0xc3)
 const headerLen = 4
 const maxToFromRadioSzie = 512
-const broadcastAddr = "^all"
-const localAddr = "^local"
-const defaultHopLimit = 3
-const broadcastNum = 0xffffffff
 
-// streamer holds the port and serial io.ReadWriteCloser struct to maintain one serial connection
-type streamer struct {
-	baseStream
+// read and write Meshtastic Protobuf packets on the underrelying Stream using magic byte codings
+type protoStream struct {
+	libsnake.BaseStream
 	libsnake.Writer[*pb.ToRadio]
 	libsnake.Reader[*pb.FromRadio]
-	nodeNum uint32
 }
 
-func (r *streamer) WritePacket(
+func (r *protoStream) WritePacket(
 	ctx context.Context,
 	p *pb.ToRadio,
 ) error {
@@ -55,7 +50,7 @@ func (r *streamer) WritePacket(
 }
 
 // ReadResponse reads any responses in the serial port, convert them to a FromRadio protobuf and return
-func (r *streamer) ReadPackets(ctx context.Context, timeout bool) (FromRadioPackets []*pb.FromRadio, err error) {
+func (r *protoStream) ReadPackets(ctx context.Context, timeout bool) (FromRadioPackets []*pb.FromRadio, err error) {
 	readCtx, cancel := context.WithTimeout(
 		ctx,
 		5*time.Second,
@@ -91,7 +86,7 @@ func (r *streamer) ReadPackets(ctx context.Context, timeout bool) (FromRadioPack
 		if errors.Is(err, context.DeadlineExceeded) {
 			err = nil
 			if len(processedBytes) > 0 { // in the middle of reading packet
-				// Hmm we would be able to recover in this case and continue using socket.
+				// Hmm we would be able to recover in this case and continue using stream.
 			}
 			return FromRadioPackets, nil
 		} else if err == io.EOF || shouldBreakOnRepeat || errors.Is(err, context.Canceled) {
@@ -146,48 +141,9 @@ func (r *streamer) ReadPackets(ctx context.Context, timeout bool) (FromRadioPack
 
 }
 
-// createAdminPacket builds a admin message packet to send to the radio
-func (r *streamer) createAdminPacket(nodeNum uint32, payload []byte) (packetOut []byte, err error) {
-
-	radioMessage := pb.ToRadio{
-		PayloadVariant: &pb.ToRadio_Packet{
-			Packet: &pb.MeshPacket{
-				To:      nodeNum,
-				WantAck: true,
-				PayloadVariant: &pb.MeshPacket_Decoded{
-					Decoded: &pb.Data{
-						Payload:      payload,
-						Portnum:      pb.PortNum_ADMIN_APP,
-						WantResponse: true,
-					},
-				},
-			},
-		},
-	}
-
-	packetOut, err = proto.Marshal(&radioMessage)
-	if err != nil {
-		return nil, err
-	}
-
-	return
-
-}
-
-// TODO: refactor/move
-func (r *streamer) PostInit(myNodeNum uint32) {
-	r.nodeNum = myNodeNum
-}
-
-// firmware consts for want_config_id:
-// #define SPECIAL_NONCE_ONLY_CONFIG 69420
-// #define SPECIAL_NONCE_ONLY_NODES 69421 // ( ͡° ͜ʖ ͡°)
-const ConfigId_OnlyNodes = 69421
-const ConfigId_ConfigOnly = 69420
-
 // GetRadioInfo retrieves information from the radio including config and adjacent Node information
 // Right after TCP dial is finished
-func (r *streamer) QueryWantConfig(ctx context.Context, id uint32) (radioResponses []*pb.FromRadio, err error) {
+func (r *protoStream) WantConfig(ctx context.Context, id uint32) (radioResponses []*pb.FromRadio, err error) {
 	nodeInfo := pb.ToRadio{PayloadVariant: &pb.ToRadio_WantConfigId{WantConfigId: id}} // only want self node info
 
 	err = r.WritePacket(ctx, &nodeInfo)
@@ -209,7 +165,7 @@ func (r *streamer) QueryWantConfig(ctx context.Context, id uint32) (radioRespons
 	return
 
 }
-func (r *streamer) SendHeartbeat(ctx context.Context, nonce uint32) (err error) {
+func (r *protoStream) SendHeartbeat(ctx context.Context, nonce uint32) (err error) {
 	// Send first request for Radio and Node information
 	nodeInfo := pb.ToRadio{PayloadVariant: &pb.ToRadio_Heartbeat{
 		Heartbeat: &pb.Heartbeat{

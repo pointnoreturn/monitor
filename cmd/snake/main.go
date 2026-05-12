@@ -42,7 +42,7 @@ func main() {
 }
 
 func InitClient(ctx context.Context, targetNode string) *meshtastic.Client {
-	ip, isIP := meshtastic.ParseTCPAddress(targetNode, meshtastic.DefaultNodeTcpPort) // try parse as IP address
+	ip, isIP := libsnake.ParseTCPAddress(targetNode, meshtastic.DefaultNodeTcpPort) // try parse as IP address
 
 	if isIP { // connect by IPv4/IPv6 address
 		c, err := meshtastic.NewClient(ctx, ip)

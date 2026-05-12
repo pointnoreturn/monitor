@@ -4,6 +4,12 @@ import (
 	pb "github.com/pointnoreturn/snake/github.com/meshtastic/go/generated"
 )
 
+// firmware consts for want_config_id:
+// #define SPECIAL_NONCE_ONLY_CONFIG 69420
+// #define SPECIAL_NONCE_ONLY_NODES 69421 // ( ͡° ͜ʖ ͡°)
+const ConfigId_OnlyNodes = 69421
+const ConfigId_ConfigOnly = 69420
+
 var corePortNames = map[pb.PortNum]string{
 	0:                                      "UNKNOWN_APP", // deprecated pb.PortNum_UNKNOWN_APP
 	pb.PortNum_TEXT_MESSAGE_APP:            "TEXT_MESSAGE_APP",

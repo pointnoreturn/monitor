@@ -10,7 +10,7 @@ import (
 
 // high level protocol client for Meshtastic
 type Client struct {
-	streamer
+	protoStream
 	Port   string         // IP:port, /serial/path, etc
 	Label  string         // SHRT_12af node label
 	MyNode *pb.MyNodeInfo // populated during connect or manually updated later
@@ -25,20 +25,20 @@ func (c *Client) String() string {
 }
 
 func NewClient(ctx context.Context, connectPort string) (*Client, error) {
-	// TODO: implemented context for socket/operation
+	// TODO: implemented context for stream/operation
 
-	socket := streamer{}
-	err := socket.Init(ctx, connectPort, DefaultNodeTcpPort)
+	stream := protoStream{}
+	err := stream.Connect(ctx, connectPort, DefaultNodeTcpPort)
 	if err != nil {
 		return nil, err
 	}
 
 	c := &Client{
-		streamer: socket,
-		Port:     connectPort,
+		protoStream: stream,
+		Port:        connectPort,
 	}
 
-	myNodeInfo, nodes, err := c.initializeNodes(ctx, ConfigId_ConfigOnly)
+	myNodeInfo, nodes, err := c.initialize(ctx, ConfigId_ConfigOnly)
 	if err != nil {
 		c.Close()
 		return nil, fmt.Errorf("Failed NewClient for %s: %v", connectPort, err)
@@ -56,7 +56,7 @@ func NewClient(ctx context.Context, connectPort string) (*Client, error) {
 	return c, nil
 }
 
-func (c *Client) initializeNodes(ctx context.Context, configId uint32) (*pb.MyNodeInfo, []*pb.NodeInfo, error) {
+func (c *Client) initialize(ctx context.Context, configId uint32) (*pb.MyNodeInfo, []*pb.NodeInfo, error) {
 	nodes := []*pb.NodeInfo{}
 	myNodeInfo, responses, err := c.initializeBase(ctx, configId, true)
 	if err != nil {
@@ -74,12 +74,12 @@ func (c *Client) initializeNodes(ctx context.Context, configId uint32) (*pb.MyNo
 
 func (c *Client) initializeBase(ctx context.Context, configId uint32, verifyCompleteId bool) (*pb.MyNodeInfo, []*pb.FromRadio, error) {
 
-	responses, err := c.streamer.QueryWantConfig(ctx, configId)
+	responses, err := c.protoStream.WantConfig(ctx, configId)
 	if err != nil {
 		return nil, responses, err
 	}
 
-	fmt.Printf("DEBUG: [initializeBase] QueryWantConfig(%d) at %s got %d responses\n", configId, c.Port, len(responses))
+	fmt.Printf("DEBUG: [initializeBase] WantConfig(%d) at %s got %d responses\n", configId, c.Port, len(responses))
 
 	var myNodeInfo *pb.MyNodeInfo
 	for _, p := range responses {

@@ -1,4 +1,4 @@
-package meshtastic
+package libsnake
 
 import (
 	"context"
@@ -9,21 +9,21 @@ import (
 	"time"
 
 	"github.com/jacobsa/go-serial/serial"
-	"github.com/pointnoreturn/snake/libsnake"
 )
 
-type baseStream struct {
-	libsnake.Transport
+// basic IO primitive for serial OR tcp stream
+type BaseStream struct {
+	Transport
 	serialPort io.ReadWriteCloser
 	netPort    net.Conn
 	isTCP      bool
 }
 
-func (s *baseStream) CanRead() bool { return true }
+func (s *BaseStream) CanRead() bool { return true }
 
-func (s *baseStream) CanWrite() bool { return true }
+func (s *BaseStream) CanWrite() bool { return true }
 
-func (s *baseStream) Close() {
+func (s *BaseStream) Close() {
 	if s.isTCP {
 		if s.netPort != nil {
 			s.netPort.Close()
@@ -35,7 +35,7 @@ func (s *baseStream) Close() {
 	}
 }
 
-func (s *baseStream) Init(
+func (s *BaseStream) Connect(
 	ctx context.Context,
 	addr string,
 	defaultPort string,
@@ -111,7 +111,7 @@ func (s *baseStream) Init(
 	}
 }
 
-func (s *baseStream) Write(
+func (s *BaseStream) Write(
 	ctx context.Context,
 	p []byte,
 ) error {
@@ -184,7 +184,7 @@ func (s *baseStream) Write(
 	return nil
 }
 
-func (s *baseStream) Read(ctx context.Context, p []byte) error {
+func (s *BaseStream) Read(ctx context.Context, p []byte) error {
 
 	for {
 
