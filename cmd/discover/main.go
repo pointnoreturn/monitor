@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pointnoreturn/snake/libsnake"
+	"github.com/pointnoreturn/snake/meshtastic"
 )
 
 func main() {
@@ -31,7 +32,7 @@ func main() {
 	}
 
 	fmt.Println("Get meshtastic nodes")
-	nodes := libsnake.GetMeshtastic(services)
+	nodes := meshtastic.GetNodes(services)
 	if len(nodes) == 0 {
 		panic("I have discovered no Meshtastic nodes among those services.")
 	}
@@ -46,7 +47,7 @@ func main() {
 	for _, n := range nodes {
 
 		fmt.Printf("test %s...\n", n.Service.Endpoint)
-		c, err := libsnake.NewMeshtasticClient(ctx, n.Service.Endpoint)
+		c, err := meshtastic.NewClient(ctx, n.Service.Endpoint)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed %s (%s): %v\n", n.Service.Endpoint, n.Label, err)
 			continue

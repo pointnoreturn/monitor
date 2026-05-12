@@ -1,4 +1,4 @@
-package libradio
+package meshtastic
 
 import (
 	"context"
@@ -9,94 +9,36 @@ import (
 	"time"
 
 	"github.com/jacobsa/go-serial/serial"
+	"github.com/pointnoreturn/snake/libsnake"
 )
 
-type streamer struct {
+type baseStream struct {
+	libsnake.Transport
 	serialPort io.ReadWriteCloser
 	netPort    net.Conn
 	isTCP      bool
 }
 
-func (s *streamer) Init(addr string) error {
-	host, port, err := net.SplitHostPort(addr)
-	if err != nil {
-		// If SplitHostPort fails, it's likely because no port was provided
-		// Treat the whole addr as the host and use your default port
-		host = addr
-		if port == "" {
-			port = "4403" // meshtastic
-		}
-	}
+func (s *baseStream) CanRead() bool { return true }
 
-	// Resolve the address string into a TCP address
-	tcpAddr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(host, port))
-	if err == nil {
-		conn, err := net.DialTCP("tcp", nil, tcpAddr)
-		if err != nil {
-			return err
+func (s *baseStream) CanWrite() bool { return true }
+
+func (s *baseStream) Close() {
+	if s.isTCP {
+		if s.netPort != nil {
+			s.netPort.Close()
 		}
-		s.netPort = conn
-		s.isTCP = true
 	} else {
-		//Configure the serial port
-		options := serial.OpenOptions{
-			PortName:              addr,
-			BaudRate:              115200,
-			DataBits:              8,
-			StopBits:              1,
-			MinimumReadSize:       0,
-			InterCharacterTimeout: 100,
-			ParityMode:            serial.PARITY_NONE,
+		if s.serialPort != nil {
+			s.serialPort.Close()
 		}
-
-		// Open the port.
-		port, err := serial.Open(options)
-		if err != nil {
-			return err
-		}
-
-		s.serialPort = port
-		s.isTCP = false
-
-		return nil
 	}
-
-	return nil
 }
 
-func ParseTCPAddress(addr string) (string, bool) {
-
-	const defaultPort = "4403"
-
-	// Case:
-	// [ipv6]:port
-	// ipv4:port
-	host, port, err := net.SplitHostPort(addr)
-
-	if err == nil {
-
-		if ip := net.ParseIP(host); ip != nil {
-
-			if port == "" {
-				port = defaultPort
-			}
-
-			return net.JoinHostPort(host, port), true
-		}
-	}
-
-	// Plain IP without port
-	if ip := net.ParseIP(addr); ip != nil {
-
-		return net.JoinHostPort(addr, defaultPort), true
-	}
-
-	return "", false
-}
-
-func (s *streamer) InitContext(
+func (s *baseStream) Init(
 	ctx context.Context,
 	addr string,
+	defaultPort string,
 ) error {
 
 	select {
@@ -105,11 +47,11 @@ func (s *streamer) InitContext(
 	default:
 	}
 
-	if tcpAddr, ok := ParseTCPAddress(addr); ok {
+	if tcpAddr, ok := ParseTCPAddress(addr, defaultPort); ok {
 
 		d := net.Dialer{}
 
-		conn, err := d.DialContext(
+		client, err := d.DialContext(
 			ctx,
 			"tcp",
 			tcpAddr,
@@ -118,19 +60,13 @@ func (s *streamer) InitContext(
 			return err
 		}
 
-		s.netPort = conn
+		s.netPort = client
 		s.isTCP = true
 
 		return nil
 	}
 
 	// serial path
-
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
-	}
 
 	options := serial.OpenOptions{
 		PortName:              addr,
@@ -175,27 +111,7 @@ func (s *streamer) InitContext(
 	}
 }
 
-func (s *streamer) Write(p []byte) error {
-
-	if s.isTCP {
-		s.netPort.SetReadDeadline(time.Now().Add(1 * time.Second))
-		_, err := s.netPort.Write(p)
-		if err != nil {
-			return err
-		}
-	} else {
-		_, err := s.serialPort.Write(p)
-		if err != nil {
-			return err
-		}
-
-		time.Sleep(100 * time.Millisecond)
-	}
-
-	return nil
-}
-
-func (s *streamer) WriteContext(
+func (s *baseStream) Write(
 	ctx context.Context,
 	p []byte,
 ) error {
@@ -268,26 +184,7 @@ func (s *streamer) WriteContext(
 	return nil
 }
 
-func (s *streamer) Read(p []byte) error {
-
-	if s.isTCP {
-		s.netPort.SetReadDeadline(time.Now().Add(2 * time.Second))
-		_, err := s.netPort.Read(p)
-		if err != nil {
-			return err
-		}
-	} else {
-		_, err := s.serialPort.Read(p)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-
-}
-
-func (s *streamer) ReadContext(ctx context.Context, p []byte) error {
+func (s *baseStream) Read(ctx context.Context, p []byte) error {
 
 	for {
 
@@ -343,13 +240,5 @@ func (s *streamer) ReadContext(ctx context.Context, p []byte) error {
 
 			return nil
 		}
-	}
-}
-
-func (s *streamer) Close() {
-	if s.isTCP {
-		s.netPort.Close()
-	} else {
-		s.serialPort.Close()
 	}
 }

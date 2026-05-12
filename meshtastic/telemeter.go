@@ -1,4 +1,4 @@
-package libsnake
+package meshtastic
 
 import (
 	"context"
@@ -11,13 +11,13 @@ import (
 )
 
 type Telemeter struct {
-	conn    *MeshtasticClient
+	client  *Client
 	weather libweather.WeatherProvider
 }
 
-func NewTelemeter(conn *MeshtasticClient, weather libweather.WeatherProvider) *Telemeter {
+func NewTelemeter(client *Client, weather libweather.WeatherProvider) *Telemeter {
 	return &Telemeter{
-		conn:    conn,
+		client:  client,
 		weather: weather,
 	}
 }
@@ -35,7 +35,7 @@ func (t *Telemeter) RunLoop(ctx context.Context) {
 		case <-ticker.C:
 			t.update()
 		default:
-			packets, err := t.conn.Socket.ReadResponseContext(ctx, true)
+			packets, err := t.client.ReadPackets(ctx, true)
 			if err != nil {
 				panic(err)
 			}

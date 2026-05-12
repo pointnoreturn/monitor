@@ -1,28 +1,11 @@
-package libsnake
+package meshtastic
 
 import (
-	"strconv"
-	"unicode"
-
 	pb "github.com/pointnoreturn/snake/github.com/meshtastic/go/generated"
 )
 
-func EmojiFromUint32(e uint32) string {
-	if e == 0 {
-		return ""
-	}
-
-	r := rune(e)
-
-	if !unicode.IsGraphic(r) {
-		return strconv.Itoa(int(e))
-	}
-
-	return string(r)
-}
-
 var corePortNames = map[pb.PortNum]string{
-	0:                                      "UNKNOWN_APP", // invalid pb.PortNum_UNKNOWN_APP
+	0:                                      "UNKNOWN_APP", // deprecated pb.PortNum_UNKNOWN_APP
 	pb.PortNum_TEXT_MESSAGE_APP:            "TEXT_MESSAGE_APP",
 	pb.PortNum_REMOTE_HARDWARE_APP:         "REMOTE_HARDWARE_APP",
 	pb.PortNum_POSITION_APP:                "POSITION_APP",
@@ -59,8 +42,10 @@ var corePortNames = map[pb.PortNum]string{
 	pb.PortNum_GROUPALARM_APP:              "GROUPALARM_APP",
 	pb.PortNum_PRIVATE_APP:                 "PRIVATE_APP",
 	pb.PortNum_ATAK_FORWARDER:              "ATAK_FORWARDER",
+	// MAX
 }
 
+// maps port number to common name (core ports only)
 func GetCorePortName(portnum pb.PortNum) (string, bool) {
 	v, ok := corePortNames[portnum]
 	return v, ok

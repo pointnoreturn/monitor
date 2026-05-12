@@ -1,39 +1,33 @@
 package libsnake
 
 import (
+	"context"
+
 	"github.com/grandcat/zeroconf"
-	pb "github.com/pointnoreturn/snake/github.com/meshtastic/go/generated"
-	"github.com/pointnoreturn/snake/libradio"
 )
 
-type DiscoveredService struct {
+// Descriptor for a Bonjour service resolved on the network
+type ResolvedService struct {
 	Endpoint string
 	Entry    *zeroconf.ServiceEntry
 	Args     map[string]string
 }
 
-type MeshtasticNode struct {
-	Service   DiscoveredService
-	NodeNum   uint32
-	ShortName string
-	Label     string
+// send/receive IO primitive
+type Transport interface {
+	Close()
+	CanRead() bool
+	CanWrite() bool
+	Write(context.Context, []byte) error
+	Read(context.Context, []byte) error
 }
 
-type MeshtasticClient struct {
-	Socket   libradio.Socket
-	Endpoint string
-	Label    string
-	MyNode   *pb.MyNodeInfo
-	NodeDB   []*pb.NodeInfo
+// protocol-agnostic packet IO streaming WritePacket
+type Writer[T any] interface {
+	WritePacket(ctx context.Context, packet T) error
 }
 
-func (c *MeshtasticClient) Close() {
-	c.Socket.Close()
-}
-
-func (c *MeshtasticClient) String() string {
-	if len(c.Label) == 0 {
-		return c.Endpoint
-	}
-	return c.Label
+// protocol-agnostic packet IO streaming ReadPackets
+type Reader[T any] interface {
+	ReadPackets(ctx context.Context, timeout bool) (packets []T, err error)
 }
