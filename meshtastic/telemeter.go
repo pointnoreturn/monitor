@@ -67,7 +67,10 @@ func (t *Telemeter) handlePacket(p *pb.FromRadio) {
 
 	case *pb.FromRadio_Packet:
 		pkt := v.Packet
-		infos := []string{fmt.Sprintf("Id %d Chan %d From !%x to !%x", pkt.Id, pkt.Channel, pkt.From, pkt.To)}
+		infos := []string{
+			fmt.Sprintf("Id %d SNR %.1f RSSI %d", pkt.Id, pkt.RxSnr, pkt.RxRssi),
+			fmt.Sprintf("Chan %d From !%x to !%x", pkt.Channel, pkt.From, pkt.To),
+		}
 
 		if pkt.HopStart == 0 {
 			infos = append(infos, fmt.Sprintf("TTL: %d", pkt.HopLimit))

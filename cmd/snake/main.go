@@ -57,8 +57,10 @@ func InitClient(ctx context.Context, targetNode string) *meshtastic.Client {
 		}
 		return c
 	} else { // discover on LAN, using mDNS scan, match by meshtastic node label or hex num
-		fmt.Println("Discover advertised meshtastic nodes on the network.")
+		fmt.Println("Discover advertised meshtastic nodes on the network")
 		all := libsnake.Discover(context.Background(), 4*time.Second)
+
+		fmt.Printf("Find target node '%s' among %d services\n", targetNode, len(all))
 		nodes := meshtastic.GetNodes(all)
 		node := meshtastic.FindMatch(targetNode, nodes)
 		if node == nil {
@@ -66,6 +68,7 @@ func InitClient(ctx context.Context, targetNode string) *meshtastic.Client {
 			panic(err)
 		}
 
+		fmt.Printf("Connect to node %s\n", node.Service.Endpoint)
 		c, err := meshtastic.NewClient(ctx, node.Service.Endpoint)
 		if err != nil {
 			panic(fmt.Errorf("Failed to connect using discovery for '%s': %w", targetNode, err))
