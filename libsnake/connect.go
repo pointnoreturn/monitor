@@ -2,8 +2,10 @@ package libsnake
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -22,7 +24,7 @@ func GetSerialNodes(devices ...string) [][]string {
 	return out
 }
 
-func DiscoverServices(ctx context.Context, timeout time.Duration) []DiscoveredService {
+func Discover(ctx context.Context, timeout time.Duration) []DiscoveredService {
 	resolver, _ := zeroconf.NewResolver(nil)
 	entries := make(chan *zeroconf.ServiceEntry)
 
@@ -70,7 +72,24 @@ func DiscoverServices(ctx context.Context, timeout time.Duration) []DiscoveredSe
 	}
 }
 
-func GetMeshtasticNodes(services []DiscoveredService) []MeshtasticNode {
+func fixMeshtasticShortname(input string) string {
+	// Match backslash followed by 3 digits
+	re := regexp.MustCompile(`\\(\d{3})`)
+
+	// Replace matches with the actual byte value
+	result := re.ReplaceAllFunc([]byte(input), func(match []byte) []byte {
+		// match[1:] skips the backslash
+		val, err := strconv.Atoi(string(match[1:]))
+		if err != nil || val > 255 {
+			return match
+		}
+		return []byte{byte(val)}
+	})
+
+	return string(result)
+}
+
+func GetMeshtastic(services []DiscoveredService) []MeshtasticNode {
 	nodes := []MeshtasticNode{}
 	for _, svc := range services {
 		if svc.Entry == nil {
@@ -82,10 +101,6 @@ func GetMeshtasticNodes(services []DiscoveredService) []MeshtasticNode {
 
 		if svc.Entry.Domain != "local." {
 			fmt.Fprintf(os.Stderr, "INFO: Domaion is '%s', not local at %s (%s)\n", svc.Entry.Domain, svc.Endpoint, svc.Entry.HostName)
-		}
-
-		if svc.Entry.Instance != "Meshtastic" {
-			fmt.Fprintf(os.Stderr, "INFO: Service is '%s', not familiar Instance='%s'\n", svc.Endpoint, svc.Entry.Instance)
 		}
 
 		hexId, hasId := svc.Args["id"]
@@ -106,6 +121,11 @@ func GetMeshtasticNodes(services []DiscoveredService) []MeshtasticNode {
 			continue
 		}
 
+		// short name emoji fix
+		if hasShortName {
+			shortName = fixMeshtasticShortname(shortName)
+		}
+
 		label := shortName
 		hexSuffix := hexId[len(hexId)-4:]
 		if len(label) == 0 {
@@ -124,46 +144,6 @@ func GetMeshtasticNodes(services []DiscoveredService) []MeshtasticNode {
 	return nodes
 }
 
-func ConnectMeshtastic(target string) (*Connection, error) {
-
-	r := libradio.Radio{}
-	err := r.Init(target)
-	if err != nil {
-		return nil, err
-	}
-
-	c := &Connection{r: r, Endpoint: target}
-
-	info, err := c.AdminGetSelfNode()
-	if err != nil {
-		c.Close()
-		return nil, fmt.Errorf("Failed to GetSelfInfo for %s: %v", target, err)
-	}
-
-	c.Label = GetNodeLabel(info)
-	c.NodeId = fmt.Sprintf("!%x", info.Num)
-	return c, nil
-}
-
-func (c *Connection) AdminGetSelfNode() (*pb.NodeInfo, error) {
-
-	responses, err := c.r.GetRadioInfoBrief()
-	if err != nil {
-		return nil, fmt.Errorf("OwnerRequest() failed: %w", err)
-	}
-
-	fmt.Printf("Feteched %d responses from OwnerRequest() %s\n", len(responses), c.Endpoint)
-
-	for _, response := range responses {
-		// Return FIRST node info assuming FIRST == SELF
-		if info := response.GetNodeInfo(); info != nil {
-			return info, nil
-		}
-	}
-
-	return nil, fmt.Errorf("Zero node infos from Radio.OwnerRequest")
-}
-
 func GetNodeLabel(info *pb.NodeInfo) string {
 
 	short := info.User.ShortName
@@ -179,26 +159,101 @@ func GetNodeLabel(info *pb.NodeInfo) string {
 	return fmt.Sprintf("!%x", info.Num)
 }
 
-func FindAndConnect(target string, nodes [][]string) (*Connection, error) {
+func MatchNodeList(target string, nodes []MeshtasticNode) *MeshtasticNode {
+	target = strings.Trim(target, "! ")
+	target = strings.ToLower(target)
 	for _, n := range nodes {
-		if strings.EqualFold(n[0], target) || n[1] == target { // match by host name or IP
-			return ConnectMeshtastic(n[1])
+		if strings.ToLower(n.Label) == target || strings.Contains(fmt.Sprintf("%x", n.NodeNum), target) { // match by host name or IP or fragment hex num
+			return &n
 		}
 	}
 
-	for _, n := range nodes {
-		c, err := ConnectMeshtastic(n[1])
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to connect %s/%s: %v\n", n[0], n[1], err)
-			continue
-		}
+	return nil
+}
 
-		if c.NodeId == target || c.Label == target { // match by label or node id
-			return c, nil
-		}
+func NewMeshtasticClient(ctx context.Context, target string) (*MeshtasticClient, error) {
+	// TODO: implemented context for socket/operation
 
+	socket := libradio.Socket{}
+	err := socket.Init(target)
+	if err != nil {
+		return nil, err
+	}
+
+	c := &MeshtasticClient{
+		Socket:   socket,
+		Endpoint: target,
+	}
+
+	myNodeInfo, nodes, err := c.initializeNodes(libradio.ConfigId_ConfigOnly)
+	if err != nil {
 		c.Close()
+		return nil, fmt.Errorf("Failed to GetSelfInfo for %s: %v", target, err)
 	}
 
-	return nil, fmt.Errorf("Failed to find node '%s' among %d nodes.", target, len(nodes))
+	if myNodeInfo == nil || len(nodes) < 1 {
+		return nil, errors.New("Safety check failed")
+	} else if myNodeInfo.MyNodeNum != nodes[0].Num {
+		return nil, fmt.Errorf("MyNodeInfo Num %d (!%x) does not match first NodeInfo entry Num %d (safety check failed)", myNodeInfo.MyNodeNum, myNodeInfo.MyNodeNum, nodes[0].Num)
+	}
+
+	c.Label = GetNodeLabel(nodes[0])
+	c.NodeId = fmt.Sprintf("!%x", myNodeInfo.MyNodeNum)
+	c.MyNodeInfo = myNodeInfo
+	c.NodeDB = nodes
+	return c, nil
+}
+
+func (c *MeshtasticClient) initializeNodes(configId uint32) (*pb.MyNodeInfo, []*pb.NodeInfo, error) {
+	nodes := []*pb.NodeInfo{}
+	myNodeInfo, responses, err := c.initializeBase(configId, true)
+	if err != nil {
+		return myNodeInfo, nodes, err
+	}
+
+	for _, p := range responses {
+		if n := p.GetNodeInfo(); n != nil {
+			nodes = append(nodes, n)
+		}
+	}
+
+	return myNodeInfo, nodes, err
+}
+
+func (c *MeshtasticClient) initializeBase(configId uint32, verifyCompleteId bool) (*pb.MyNodeInfo, []*pb.FromRadio, error) {
+
+	responses, err := c.Socket.SendWantConfigId(configId)
+	if err != nil {
+		return nil, responses, err
+	}
+
+	fmt.Printf("DEBUG: [initializeBase] SendWantConfigId(%d) at %s got %d responses\n", configId, c.Endpoint, len(responses))
+
+	var myNodeInfo *pb.MyNodeInfo
+	for _, p := range responses {
+		if info := p.GetMyInfo(); info != nil && myNodeInfo == nil {
+			myNodeInfo = info
+		}
+	}
+
+	if myNodeInfo == nil {
+		return nil, responses, errors.New("MyNodeInfo packet was missing the response.")
+	}
+
+	if verifyCompleteId {
+		var completeId uint32 = 0
+		for _, p := range responses {
+			// Return FIRST node info assuming FIRST == SELF
+			if complete := p.GetConfigCompleteId(); complete != 0 && completeId == 0 {
+				if complete == configId {
+					completeId = complete
+				}
+			}
+		}
+		if completeId != configId {
+			return myNodeInfo, responses, fmt.Errorf("config_complete_id expected with value %d, but the receive was %d or not sent by the node.", configId, completeId)
+		}
+	}
+
+	return myNodeInfo, responses, nil
 }

@@ -10,27 +10,37 @@ import (
 )
 
 func main() {
-	fmt.Println("Discover network services.")
-	services := libsnake.DiscoverServices(context.Background(), 5*time.Second)
+	fmt.Println("Discover advertised services.")
+	services := libsnake.Discover(context.Background(), 10*time.Second)
+	if len(services) == 0 {
+		panic("I have discovered no broadcast services.")
+	}
 
 	for _, svc := range services {
-		fmt.Printf("SERVICE: [%s], Hostname: %s, Args: %+v, I: %s\n", svc.Endpoint, svc.Entry.HostName, svc.Args, svc.Entry.Instance)
+		fmt.Printf("- Discovery: [%s], I: %s, Args: %+v\n", svc.Endpoint, svc.Entry.Instance, svc.Args)
 	}
 
 	fmt.Println("Get meshtastic nodes")
-	for _, n := range libsnake.GetMeshtasticNodes(services) {
+	nodes := libsnake.GetMeshtastic(services)
+	if len(nodes) == 0 {
+		panic("I have discovered no Meshtastic nodes among those services.")
+	}
 
-		fmt.Printf("NODE: [%s] id=!%x\tnum=%d\tshort=%s\t%s\t%s:%d\n", n.Label, n.NodeNum, n.NodeNum, n.ShortName, n.Service.Endpoint, n.Service.Entry.HostName, n.Service.Entry.Port)
+	for _, n := range nodes {
 
-		fmt.Print("connect...")
-		c, err := libsnake.ConnectMeshtastic(n.Service.Endpoint)
+		fmt.Printf("- Node: [%s] id=!%x\tnum=%d\tshort=%s\t%s\t%s:%d\n", n.Label, n.NodeNum, n.NodeNum, n.ShortName, n.Service.Endpoint, n.Service.Entry.HostName, n.Service.Entry.Port)
+	}
+
+	for _, n := range nodes {
+
+		fmt.Printf("test %s...\n", n.Service.Endpoint)
+		c, err := libsnake.NewMeshtasticClient(context.Background(), n.Service.Endpoint)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to connect %s (%s): %v\n", n.Service.Endpoint, n.Label, err)
 			continue
 		}
-		fmt.Println("DONE" + ": " + c.Label + ", " + c.NodeId)
+		fmt.Println("test OK: " + c.Label + ", " + c.NodeId)
 
 		c.Close()
-		fmt.Println("disconnected.")
 	}
 }

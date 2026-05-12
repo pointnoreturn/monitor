@@ -9,11 +9,11 @@ import (
 )
 
 type Telemeter struct {
-	conn    *Connection
+	conn    *MeshtasticClient
 	weather libweather.WeatherProvider
 }
 
-func NewTelemeter(conn *Connection, weather libweather.WeatherProvider) *Telemeter {
+func NewTelemeter(conn *MeshtasticClient, weather libweather.WeatherProvider) *Telemeter {
 	return &Telemeter{
 		conn:    conn,
 		weather: weather,

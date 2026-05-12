@@ -2,21 +2,24 @@ package libsnake
 
 import (
 	"github.com/grandcat/zeroconf"
+	pb "github.com/pointnoreturn/snake/github.com/meshtastic/go/generated"
 	"github.com/pointnoreturn/snake/libradio"
 )
 
-type Connection struct {
-	r        libradio.Radio
-	Endpoint string
-	NodeId   string
-	Label    string
+type MeshtasticClient struct {
+	Socket     libradio.Socket
+	Endpoint   string
+	NodeId     string
+	Label      string
+	MyNodeInfo *pb.MyNodeInfo
+	NodeDB     []*pb.NodeInfo
 }
 
-func (c *Connection) Close() {
-	c.r.Close()
+func (c *MeshtasticClient) Close() {
+	c.Socket.Close()
 }
 
-func (c *Connection) String() string {
+func (c *MeshtasticClient) String() string {
 	if len(c.Label) == 0 {
 		return c.Endpoint
 	}

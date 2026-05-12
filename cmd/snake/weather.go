@@ -9,7 +9,7 @@ import (
 	"github.com/pointnoreturn/snake/libweather"
 )
 
-func tryMakeWeatherProvider() libweather.WeatherProvider {
+func InitWeatherProvider() libweather.WeatherProvider {
 	apiKey := os.Getenv("OWM_KEY")
 	if len(apiKey) == 0 {
 		fmt.Fprintln(os.Stderr, "WARN: no OWM_KEY, api key for OpenWeatherMap. Weather cannot work")

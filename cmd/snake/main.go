@@ -16,42 +16,48 @@ import (
 )
 
 func main() {
-	var w libweather.WeatherProvider = tryMakeWeatherProvider()
+	var w libweather.WeatherProvider = InitWeatherProvider()
 
 	targetNode := os.Getenv("TARGET_NODE")
 	if len(targetNode) == 0 {
 		panic("TARGET_NODE is empty")
 	}
 
-	var conn *libsnake.Connection = mustConnect(targetNode)
-	fmt.Println("Connected to: " + conn.String())
+	var c *libsnake.MeshtasticClient = InitClient(context.TODO(), targetNode)
+	fmt.Println("Connected to: " + c.String())
 
-	var t *libsnake.Telemeter = libsnake.NewTelemeter(conn, w)
+	var t *libsnake.Telemeter = libsnake.NewTelemeter(c, w)
 	t.RunLoop(context.TODO())
 }
 
-func mustConnect(targetNode string) *libsnake.Connection {
+func InitClient(ctx context.Context, targetNode string) *libsnake.MeshtasticClient {
 	ip := net.ParseIP(targetNode) // try parse as IP address
 
-	if ip != nil { // connect by IP address
-		if c, err := libsnake.ConnectMeshtastic(ip.String()); err != nil {
+	if ip != nil { // connect by IPv4/IPv6 address
+		c, err := libsnake.NewMeshtasticClient(ctx, ip.String())
+		if err != nil {
 			panic(fmt.Errorf("Failed to connect to TCP '%s': %w", targetNode, err))
-		} else {
-			return c
 		}
+		return c
 	} else if strings.Index(targetNode, "/") == 0 { // serial device is a path
-		if c, err := libsnake.ConnectMeshtastic(targetNode); err != nil {
+		c, err := libsnake.NewMeshtasticClient(ctx, targetNode)
+		if err != nil {
 			panic(fmt.Errorf("Failed to connect to serial device '%s': %w", targetNode, err))
-		} else {
-			return c
 		}
-	} else { // discover on LAN, using mDNS scan + connect
-		nodes := libsnake.DiscoverServices(context.Background(), 5*time.Second)
-		c, err := libsnake.FindAndConnect(targetNode, nodes)
+		return c
+	} else { // discover on LAN, using mDNS scan, match by meshtastic node label or hex num
+		all := libsnake.Discover(context.Background(), 10*time.Second)
+		nodes := libsnake.GetMeshtastic(all)
+		node := libsnake.MatchNodeList(targetNode, nodes)
+		if node == nil {
+			err := fmt.Errorf("Node not found using mDNS scan and matching: '%s' (retry/longer scan may fix resolution)", targetNode)
+			panic(err)
+		}
+
+		c, err := libsnake.NewMeshtasticClient(ctx, node.Service.Endpoint)
 		if err != nil {
 			panic(fmt.Errorf("Failed to connect using discovery for '%s': %w", targetNode, err))
-		} else {
-			return c
 		}
+		return c
 	}
 }
