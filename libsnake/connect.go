@@ -151,9 +151,9 @@ func GetNodeLabel(info *pb.NodeInfo) string {
 
 	if len(nodeID) >= 6 && nodeID[0] == '!' {
 		suffix := nodeID[len(nodeID)-4:]
-		return fmt.Sprintf("%s_%s", strings.ToUpper(short), strings.ToUpper(suffix))
+		return fmt.Sprintf("%s_%s", short, suffix)
 	} else if len(short) > 0 {
-		return strings.ToUpper(short)
+		return short
 	}
 
 	return fmt.Sprintf("!%x", info.Num)

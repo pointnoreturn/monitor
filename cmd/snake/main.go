@@ -24,6 +24,7 @@ func main() {
 	}
 
 	var c *libsnake.MeshtasticClient = InitClient(context.TODO(), targetNode)
+	defer c.Close()
 	fmt.Printf("Connected to: %s (!%x)\n", c.Label, c.MyNode.MyNodeNum)
 
 	var t *libsnake.Telemeter = libsnake.NewTelemeter(c, w)
