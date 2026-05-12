@@ -75,7 +75,7 @@ func (t *Telemeter) handlePacket(p *pb.FromRadio) {
 		if pkt.HopStart == 0 {
 			infos = append(infos, fmt.Sprintf("TTL: %d", pkt.HopLimit))
 		} else {
-			infos = append(infos, fmt.Sprintf("TTL: %d/%d", pkt.HopStart-pkt.HopLimit, pkt.HopStart))
+			infos = append(infos, fmt.Sprintf("TTL: %d/%d (%d hops away)", pkt.HopLimit, pkt.HopStart, pkt.HopStart-pkt.HopLimit))
 		}
 
 		if d := pkt.GetDecoded(); d != nil {
