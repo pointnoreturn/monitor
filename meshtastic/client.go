@@ -79,7 +79,7 @@ func (c *Client) initializeBase(ctx context.Context, configId uint32, verifyComp
 		return nil, responses, err
 	}
 
-	fmt.Printf("DEBUG: [initializeBase] WantConfig(%d) at %s got %d responses\n", configId, c.Port, len(responses))
+	//fmt.Printf("DEBUG: [initializeBase] WantConfig(%d) at %s got %d responses\n", configId, c.Port, len(responses))
 
 	var myNodeInfo *pb.MyNodeInfo
 	for _, p := range responses {

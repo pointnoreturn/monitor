@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"time"
 
@@ -92,7 +91,6 @@ func (r *protoStream) ReadPackets(ctx context.Context, timeout bool) (FromRadioP
 		} else if err == io.EOF || shouldBreakOnRepeat || errors.Is(err, context.Canceled) {
 			break
 		} else if err != nil {
-			fmt.Println("return err 1")
 			return nil, err
 		}
 		copy(previousByte, b)
@@ -123,7 +121,6 @@ func (r *protoStream) ReadPackets(ctx context.Context, timeout bool) (FromRadioP
 				if len(processedBytes) != 0 && pointer+1 == packetLength+headerLen {
 					fromRadio := pb.FromRadio{}
 					if err := proto.Unmarshal(processedBytes[headerLen:], &fromRadio); err != nil {
-						fmt.Println("return err 2")
 						return nil, err
 					}
 					FromRadioPackets = append(FromRadioPackets, &fromRadio)
@@ -151,10 +148,7 @@ func (r *protoStream) WantConfig(ctx context.Context, id uint32) (radioResponses
 		return nil, err
 	}
 
-	fmt.Println("SendPacketContext success")
-
 	radioResponses, err = r.ReadPackets(ctx, true)
-	fmt.Printf("ReadResponseContext returned with err=%v\n", err)
 	if err != nil {
 		return nil, err
 	}
