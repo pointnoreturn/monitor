@@ -137,35 +137,3 @@ func (r *ProtoStream) ReadPackets(ctx context.Context, timeout bool) (FromRadioP
 	return FromRadioPackets, nil
 
 }
-
-// GetRadioInfo retrieves information from the radio including config and adjacent Node information
-// Right after TCP dial is finished
-func (r *ProtoStream) WantConfig(ctx context.Context, id uint32) (radioResponses []*pb.FromRadio, err error) {
-	nodeInfo := pb.ToRadio{PayloadVariant: &pb.ToRadio_WantConfigId{WantConfigId: id}} // only want self node info
-
-	err = r.WritePacket(ctx, &nodeInfo)
-	if err != nil {
-		return nil, err
-	}
-
-	radioResponses, err = r.ReadPackets(ctx, true)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(radioResponses) == 0 {
-		return nil, errors.New("failed to get radio info")
-	}
-	return
-
-}
-func (r *ProtoStream) SendHeartbeat(ctx context.Context, nonce uint32) (err error) {
-	// Send first request for Radio and Node information
-	nodeInfo := pb.ToRadio{PayloadVariant: &pb.ToRadio_Heartbeat{
-		Heartbeat: &pb.Heartbeat{
-			Nonce: nonce,
-		},
-	}}
-
-	return r.WritePacket(ctx, &nodeInfo)
-}
