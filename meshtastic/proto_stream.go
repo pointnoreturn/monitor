@@ -19,13 +19,13 @@ const headerLen = 4
 const maxToFromRadioSzie = 512
 
 // read and write Meshtastic Protobuf packets on the underrelying Stream using magic byte codings
-type protoStream struct {
+type ProtoStream struct {
 	libsnake.BaseStream
 	libsnake.Writer[*pb.ToRadio]
 	libsnake.Reader[*pb.FromRadio]
 }
 
-func (r *protoStream) WritePacket(
+func (r *ProtoStream) WritePacket(
 	ctx context.Context,
 	p *pb.ToRadio,
 ) error {
@@ -49,7 +49,7 @@ func (r *protoStream) WritePacket(
 }
 
 // ReadResponse reads any responses in the serial port, convert them to a FromRadio protobuf and return
-func (r *protoStream) ReadPackets(ctx context.Context, timeout bool) (FromRadioPackets []*pb.FromRadio, err error) {
+func (r *ProtoStream) ReadPackets(ctx context.Context, timeout bool) (FromRadioPackets []*pb.FromRadio, err error) {
 	readCtx, cancel := context.WithTimeout(
 		ctx,
 		5*time.Second,
@@ -140,7 +140,7 @@ func (r *protoStream) ReadPackets(ctx context.Context, timeout bool) (FromRadioP
 
 // GetRadioInfo retrieves information from the radio including config and adjacent Node information
 // Right after TCP dial is finished
-func (r *protoStream) WantConfig(ctx context.Context, id uint32) (radioResponses []*pb.FromRadio, err error) {
+func (r *ProtoStream) WantConfig(ctx context.Context, id uint32) (radioResponses []*pb.FromRadio, err error) {
 	nodeInfo := pb.ToRadio{PayloadVariant: &pb.ToRadio_WantConfigId{WantConfigId: id}} // only want self node info
 
 	err = r.WritePacket(ctx, &nodeInfo)
@@ -159,13 +159,13 @@ func (r *protoStream) WantConfig(ctx context.Context, id uint32) (radioResponses
 	return
 
 }
-func (r *protoStream) SendHeartbeat(ctx context.Context, nonce uint32) (err error) {
+func (r *ProtoStream) SendHeartbeat(ctx context.Context, nonce uint32) (err error) {
 	// Send first request for Radio and Node information
 	nodeInfo := pb.ToRadio{PayloadVariant: &pb.ToRadio_Heartbeat{
 		Heartbeat: &pb.Heartbeat{
 			Nonce: nonce,
 		},
-	}} // only want self node info
+	}}
 
 	return r.WritePacket(ctx, &nodeInfo)
 }

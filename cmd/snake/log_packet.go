@@ -1,57 +1,18 @@
-package meshtastic
+package main
 
 import (
-	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	pb "github.com/pointnoreturn/snake/github.com/meshtastic/go/generated"
-	"github.com/pointnoreturn/snake/libweather"
+	"github.com/pointnoreturn/snake/meshtastic"
 )
 
-type Telemeter struct {
-	client  *Client
-	weather libweather.WeatherProvider
-}
-
-func NewTelemeter(client *Client, weather libweather.WeatherProvider) *Telemeter {
-	return &Telemeter{
-		client:  client,
-		weather: weather,
-	}
-}
-
-func (t *Telemeter) RunLoop(ctx context.Context) {
-	ticker := time.NewTicker(5 * time.Minute)
-	defer ticker.Stop()
-
-	fmt.Println("Telemeter loop is running")
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			t.update()
-		default:
-			packets, err := t.client.ReadPackets(ctx, true)
-			if err != nil {
-				panic(err)
-			}
-			for _, p := range packets {
-				t.handlePacket(p)
-			}
-		}
-	}
-}
-
-func (t *Telemeter) update() {
-	fmt.Println(":update") // TODO
-}
-
-func (t *Telemeter) handlePacket(p *pb.FromRadio) {
+func logPacket(p *pb.FromRadio, MyNodeNum uint32) {
 	switch v := p.PayloadVariant.(type) {
+
+	case *pb.FromRadio_QueueStatus: // Ignore connection status metadata (heartbeat related)
+		return
 
 	// case *pb.FromRadio_NodeInfo:
 	// 	return "NodeInfo"
@@ -75,7 +36,7 @@ func (t *Telemeter) handlePacket(p *pb.FromRadio) {
 		}
 
 		hopsAway := pkt.HopStart - pkt.HopLimit
-		if pkt.From == t.client.MyNode.MyNodeNum {
+		if pkt.From == MyNodeNum {
 			hopsAway = 0
 			rxInfo = ""
 		}
@@ -99,7 +60,7 @@ func (t *Telemeter) handlePacket(p *pb.FromRadio) {
 		}
 
 		if d := pkt.GetDecoded(); d != nil {
-			if portName, hasPortName := GetCorePortName(d.Portnum); !hasPortName {
+			if portName, hasPortName := meshtastic.GetCorePortName(d.Portnum); !hasPortName {
 				infos = append(infos, fmt.Sprintf("📗 port %d sz %d %s", d.Portnum, len(d.Payload), varType))
 			} else {
 				infos = append(infos, fmt.Sprintf("📗 %s sz %d %s", portName, len(d.Payload), varType))
@@ -111,7 +72,7 @@ func (t *Telemeter) handlePacket(p *pb.FromRadio) {
 					infos = append(infos, fmt.Sprintf("Text: \"%s\"", text))
 				}
 			}
-			if emoji := EmojiFromUint32(d.Emoji); emoji != "" { // uint32
+			if emoji := meshtastic.EmojiFromUint32(d.Emoji); emoji != "" { // uint32
 				infos = append(infos, fmt.Sprintf("emoji: %s", emoji))
 			}
 		} else if e := pkt.GetEncrypted(); e != nil {

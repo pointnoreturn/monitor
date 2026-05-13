@@ -10,7 +10,7 @@ import (
 
 // high level protocol client for Meshtastic
 type Client struct {
-	protoStream
+	ProtoStream
 	Port   string         // IP:port, /serial/path, etc
 	Label  string         // SHRT_12af node label
 	MyNode *pb.MyNodeInfo // populated during connect or manually updated later
@@ -27,14 +27,14 @@ func (c *Client) String() string {
 func NewClient(ctx context.Context, connectPort string) (*Client, error) {
 	// TODO: implemented context for stream/operation
 
-	stream := protoStream{}
+	stream := ProtoStream{}
 	err := stream.Connect(ctx, connectPort, DefaultNodeTcpPort)
 	if err != nil {
 		return nil, err
 	}
 
 	c := &Client{
-		protoStream: stream,
+		ProtoStream: stream,
 		Port:        connectPort,
 	}
 
@@ -74,7 +74,7 @@ func (c *Client) initialize(ctx context.Context, configId uint32) (*pb.MyNodeInf
 
 func (c *Client) initializeBase(ctx context.Context, configId uint32, verifyCompleteId bool) (*pb.MyNodeInfo, []*pb.FromRadio, error) {
 
-	responses, err := c.protoStream.WantConfig(ctx, configId)
+	responses, err := c.ProtoStream.WantConfig(ctx, configId)
 	if err != nil {
 		return nil, responses, err
 	}
