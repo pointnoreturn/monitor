@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/pointnoreturn/snake/libsnake"
+	"github.com/pointnoreturn/snake/libradios"
 	"github.com/pointnoreturn/snake/meshtastic"
 )
 
@@ -22,7 +22,7 @@ func main() {
 	defer stop()
 
 	fmt.Println("Discover advertised services.")
-	services := libsnake.Discover(ctx, 10*time.Second)
+	services := libradios.Discover(ctx, 10*time.Second)
 	if len(services) == 0 {
 		panic("I have discovered no broadcast services.")
 	}
@@ -32,7 +32,7 @@ func main() {
 	}
 
 	fmt.Println("Get meshtastic nodes")
-	nodes := meshtastic.GetNodes(services)
+	nodes := meshtastic.AsNodes(services)
 	if len(nodes) == 0 {
 		panic("I have discovered no Meshtastic nodes among those services.")
 	}

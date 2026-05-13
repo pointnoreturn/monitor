@@ -8,7 +8,7 @@ import (
 	"time"
 
 	pb "github.com/pointnoreturn/snake/github.com/meshtastic/go/generated"
-	"github.com/pointnoreturn/snake/libsnake"
+	"github.com/pointnoreturn/snake/libradios"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -20,9 +20,9 @@ const maxToFromRadioSzie = 512
 
 // read and write Meshtastic Protobuf packets on the underrelying Stream using magic byte codings
 type ProtoStream struct {
-	libsnake.BaseStream
-	libsnake.Writer[*pb.ToRadio]
-	libsnake.Reader[*pb.FromRadio]
+	libradios.BaseStream
+	libradios.Writer[*pb.ToRadio]
+	libradios.Reader[*pb.FromRadio]
 }
 
 func (r *ProtoStream) WritePacket(

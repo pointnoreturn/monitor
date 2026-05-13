@@ -9,7 +9,7 @@ import (
 	"unicode"
 
 	pb "github.com/pointnoreturn/snake/github.com/meshtastic/go/generated"
-	"github.com/pointnoreturn/snake/libsnake"
+	"github.com/pointnoreturn/snake/libradios"
 )
 
 const DefaultNodeTcpPort string = "4403"
@@ -47,7 +47,7 @@ func EmojiFromUint32(e uint32) string {
 }
 
 // from list of discovered Bonjour services, extract anouncements for Meshtastic nodes
-func GetNodes(services []libsnake.ResolvedService) []ResolvedNode {
+func AsNodes(services []libradios.ResolvedService) []ResolvedNode {
 	nodes := []ResolvedNode{}
 	for _, svc := range services {
 		if svc.Entry == nil {
@@ -117,7 +117,7 @@ func GetNodeLabel(info *pb.NodeInfo) string {
 	return fmt.Sprintf("!%x", info.Num)
 }
 
-func FindMatch(target string, nodes []ResolvedNode) *ResolvedNode {
+func FindNode(target string, nodes []ResolvedNode) *ResolvedNode {
 	target = strings.Trim(target, "! ")
 	target = strings.ToLower(target)
 	for _, n := range nodes {

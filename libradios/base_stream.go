@@ -1,4 +1,4 @@
-package libsnake
+package libradios
 
 import (
 	"context"
