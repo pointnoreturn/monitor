@@ -35,7 +35,7 @@ func logPacket(p *pb.FromRadio, MyNodeNum uint32) {
 			relayInfo = ""
 		}
 
-		hopsAway := pkt.HopStart - pkt.HopLimit
+		hopsAway := meshtastic.HopsAway(pkt)
 		if pkt.From == MyNodeNum {
 			hopsAway = 0
 			rxInfo = ""

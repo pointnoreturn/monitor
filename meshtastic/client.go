@@ -24,7 +24,7 @@ func (c *Client) String() string {
 	return c.Label
 }
 
-func NewClient(ctx context.Context, connectPort string) (*Client, error) {
+func NewClient(ctx context.Context, connectPort string, configHandler PacketF) (*Client, error) {
 	// TODO: implemented context for stream/operation
 
 	stream := ProtoStream{}
@@ -38,7 +38,7 @@ func NewClient(ctx context.Context, connectPort string) (*Client, error) {
 		Port:        connectPort,
 	}
 
-	myNodeInfo, nodes, err := c.initialize(ctx, ConfigId_ConfigOnly)
+	myNodeInfo, nodes, err := c.initialize(ctx, ConfigId_ConfigOnly, configHandler)
 	if err != nil {
 		c.Close()
 		return nil, fmt.Errorf("Failed NewClient for %s: %v", connectPort, err)
@@ -56,14 +56,19 @@ func NewClient(ctx context.Context, connectPort string) (*Client, error) {
 	return c, nil
 }
 
-func (c *Client) initialize(ctx context.Context, configId uint32) (*pb.MyNodeInfo, []*pb.NodeInfo, error) {
+func (c *Client) initialize(ctx context.Context, configId uint32, configHandler PacketF) (*pb.MyNodeInfo, []*pb.NodeInfo, error) {
 	nodes := []*pb.NodeInfo{}
 	myNodeInfo, responses, err := c.initializeBase(ctx, configId, true)
 	if err != nil {
 		return myNodeInfo, nodes, err
 	}
 
+	if configHandler == nil {
+		configHandler = func(*pb.FromRadio) {}
+	}
+
 	for _, p := range responses {
+		configHandler(p)
 		if n := p.GetNodeInfo(); n != nil {
 			nodes = append(nodes, n)
 		}

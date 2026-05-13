@@ -29,18 +29,38 @@ func main() {
 		panic("TARGET_NODE is empty")
 	}
 
-	var c *meshtastic.Client = connect(ctx, targetNode)
-	defer c.Close()
-	fmt.Printf("Connected to: %s (!%x) at %s\n", c.Label, c.MyNode.MyNodeNum, c.Port)
+	// Run NodeDB
+	nodedb := NewNodeDB()
+	go nodedb.Run(ctx)
 
-	var t *meshtastic.Dispatch = meshtastic.NewDispatch(&c.ProtoStream, 10, []meshtastic.PacketF{
+	// create and connect client
+	var client *meshtastic.Client = connect(ctx, targetNode, []meshtastic.PacketF{
+		// connection initialization handlers chain
+		nodedb.HandlePacket,
+	})
+	defer client.Close()
+	fmt.Printf("Connected to: %s (!%x) at %s\n", client.Label, client.MyNode.MyNodeNum, client.Port)
+
+	if client.MyNode == nil || client.MyNode.MyNodeNum == 0 {
+		panic("Client MyNodeInfo initialization has failed for some weird reason.")
+	}
+
+	// Run reporter
+	reporter := NewReporter(client.MyNode.MyNodeNum, nodedb)
+	go reporter.Run(ctx)
+
+	// create dispatch with packet handlers configured
+	var dispatch *meshtastic.Dispatch = meshtastic.NewDispatch(&client.ProtoStream, 10, []meshtastic.PacketF{
+		// packet sniffing handlers chain
 		func(p *pb.FromRadio) {
-			logPacket(p, c.MyNode.MyNodeNum)
+			logPacket(p, client.MyNode.MyNodeNum)
 		},
+		nodedb.HandlePacket,
+		reporter.HandlePacket,
 	})
 
-	err := t.Run(ctx)
-
+	// run packet handlers as Dispatch
+	err := dispatch.Run(ctx)
 	if err != nil {
 		if errors.Is(ctx.Err(), context.Canceled) {
 			fmt.Println("Non-critical error: " + err.Error())

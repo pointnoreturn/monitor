@@ -1,6 +1,7 @@
 package meshtastic
 
 import (
+	pb "github.com/pointnoreturn/snake/github.com/meshtastic/go/generated"
 	"github.com/pointnoreturn/snake/libradios"
 )
 
@@ -11,3 +12,5 @@ type ResolvedNode struct {
 	ShortName string
 	Label     string
 }
+
+type PacketF func(*pb.FromRadio)

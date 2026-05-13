@@ -47,7 +47,7 @@ func main() {
 	for _, n := range nodes {
 
 		fmt.Printf("test %s...\n", n.Service.Endpoint)
-		c, err := meshtastic.NewClient(ctx, n.Service.Endpoint)
+		c, err := meshtastic.NewClient(ctx, n.Service.Endpoint, nil)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed %s (%s): %v\n", n.Service.Endpoint, n.Label, err)
 			continue

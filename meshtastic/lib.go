@@ -175,3 +175,12 @@ func FindNode(target string, nodes []ResolvedNode) *ResolvedNode {
 
 	return nil
 }
+
+func HopsAway(pkt *pb.MeshPacket) uint32 {
+	if pkt.HopStart == 0 {
+		return 0
+	} else if pkt.HopLimit > pkt.HopStart {
+		return pkt.HopLimit
+	}
+	return pkt.HopStart - pkt.HopLimit
+}

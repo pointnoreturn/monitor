@@ -12,17 +12,18 @@ import (
 
 // default interval for periodic heartbeats
 // sending a heartbeat is the best way to detect the connection was broken and failed.
-const defaultHeartbeatInterval = 40 * time.Second
+const defaultHeartbeatInterval = 60 * time.Second
 
 // default value for sniff timeout (receiver idle)
 const defaultSniffTimeout = time.Minute * 2
 
 var (
 	// checks socket is alive and radio is active it will fail if not for some period
-	ErrSniffTimeout = errors.New("Waiting for packet receive timed out")
-)
+	ErrSniffTimeout = errors.New("Waiting for packet receive timed         out")
 
-type PacketF func(*pb.FromRadio)
+	// A proto stream may be receive only
+	ErrReadonly = errors.New("ProtoStream is not CanWrite()")
+)
 
 type Dispatch struct {
 	libradios.Writer[*pb.ToRadio]
@@ -43,6 +44,9 @@ func NewDispatch(stream *ProtoStream, sendBuffer int, receivers []PacketF) *Disp
 
 // queue packets for sending
 func (d *Dispatch) SendPacket(p *pb.ToRadio) error {
+	if !d.stream.CanWrite() {
+		return ErrReadonly
+	}
 	d.sendPacketsQueue <- p
 	return nil
 }
