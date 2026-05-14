@@ -7,53 +7,49 @@ import (
 	"time"
 
 	pb "github.com/pointnoreturn/monitor/github.com/meshtastic/go/generated"
-	"github.com/pointnoreturn/monitor/libradios"
 )
 
 // default interval for periodic heartbeats
 // sending a heartbeat is the best way to detect the connection was broken and failed.
-const defaultHeartbeatInterval = 60 * time.Second
+const heartbeatInterval = time.Second * 15
 
-// default value for sniff timeout (receiver idle)
-const defaultSniffTimeout = time.Minute * 2
+// default timeout for "should have received anything"
+const receiveTimeout = time.Minute * 5
 
 var (
 	// checks socket is alive and radio is active it will fail if not for some period
-	ErrSniffTimeout = errors.New("Waiting for packet receive timed         out")
+	ErrReceiveTimeout = errors.New("Waiting for packet receive timed         out")
 
 	// A proto stream may be receive only
 	ErrReadonly = errors.New("ProtoStream is not CanWrite()")
 )
 
+// high level send and receive packets with multiple handlers and keepalive (heartbeats)
 type Dispatch struct {
-	libradios.Writer[*pb.ToRadio]
-	stream           *ProtoStream
-	HandlePacket     PacketF
-	sniffTimeout     time.Duration
-	sendPacketsQueue chan *pb.ToRadio
+	Writer       // WritePacket, queued send packets
+	Reader       // ReadPacket waits for worker to encounter a packet, as a proxy
+	stream       *ProtoStream
+	HandlePacket PacketF
+	recvTimeout  time.Duration
+	sendQueue    chan *pb.ToRadio   // WritePackets synchronous  implemented as a buffered channel consumed by Run()
+	recvQueue    chan *pb.FromRadio // ReadPackets synchronous implemeted as a waiter for channel populated in Run() if someone is waiting
 }
 
+// make a new dispatch on the compatible connection (one per connection)
 func NewDispatch(stream *ProtoStream, sendBuffer int, handler PacketF) *Dispatch {
 	return &Dispatch{
-		stream:           stream,
-		HandlePacket:     handler,
-		sniffTimeout:     defaultSniffTimeout,
-		sendPacketsQueue: make(chan *pb.ToRadio, sendBuffer),
+		stream:       stream,
+		HandlePacket: handler,
+		recvTimeout:  receiveTimeout,
+		sendQueue:    make(chan *pb.ToRadio, sendBuffer),
+		recvQueue:    make(chan *pb.FromRadio),
 	}
 }
 
-// queue packets for sending
-func (d *Dispatch) SendPacket(p *pb.ToRadio) error {
-	if !d.stream.CanWrite() {
-		return ErrReadonly
-	}
-	d.sendPacketsQueue <- p
-	return nil
-}
-
-func (d *Dispatch) Run(ctx context.Context) error {
+// send and receive packets worker
+func (dispatch *Dispatch) Run(ctx context.Context) error {
 	var heartbeats uint32 = 0
-	keepAlive := time.NewTicker(defaultHeartbeatInterval)
+	keepAlive := time.NewTicker(heartbeatInterval)
 	defer keepAlive.Stop()
 
 	fmt.Println("[Dispatch] Running")
@@ -62,38 +58,90 @@ func (d *Dispatch) Run(ctx context.Context) error {
 
 	for {
 		select {
+
+		// context cancellation
 		case <-ctx.Done():
 			return ctx.Err()
+
+		// send periodic hearbeats
 		case <-keepAlive.C:
 			heartbeats += 1
-			err := d.stream.SendHeartbeat(ctx, heartbeats)
+			err := Heartbeat(ctx, dispatch.stream, heartbeats)
 			if err != nil {
 				fmt.Printf("Heartbeat write failed with Err %T\n", err)
 				return err
 			}
-		case p := <-d.sendPacketsQueue:
-			err := d.stream.WritePacket(ctx, p)
+
+		// packets queued to send
+		case p := <-dispatch.sendQueue:
+			err := dispatch.stream.WritePacket(ctx, p)
 			if err != nil {
 				fmt.Printf("WritePacket queued in Dispatch failed with Err %T\n", err)
 				return err
 			}
+
+		// receive packets
 		default:
-			packets, err := d.stream.ReadPackets(ctx, true)
+			packets, err := dispatch.stream.ReadPackets(ctx, true)
 			if err != nil {
 				fmt.Printf("ReadPackets failed with Err %T\n", err)
 				return err
 			}
 
 			if len(packets) == 0 { // no packets received
-				if time.Since(lastPacket) > d.sniffTimeout { // last packet was too long ago
-					return ErrSniffTimeout
+				if time.Since(lastPacket) > dispatch.recvTimeout { // last packet was too long ago
+					return ErrReceiveTimeout
+				}
+			} else {
+				for _, p := range packets {
+
+					// send packet for synchronious ReadPacket. If there is no receiver, ignore
+					select {
+					case dispatch.recvQueue <- p:
+					default:
+					}
+
+					dispatch.HandlePacket(p)
+					lastPacket = time.Now()
 				}
 			}
-
-			for _, p := range packets {
-				d.HandlePacket(p)
-				lastPacket = time.Now()
-			}
 		}
+	}
+}
+
+// queue packet for sending
+func (dispatch *Dispatch) WritePacket(ctx context.Context, p *pb.ToRadio) error {
+	if !dispatch.stream.CanWrite() {
+		return ErrReadonly
+	}
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case dispatch.sendQueue <- p:
+		return nil
+	}
+}
+
+func (dispatch *Dispatch) ReadPackets(ctx context.Context, timeout bool) (packets []*pb.FromRadio, err error) {
+	if !timeout {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case packet := <-dispatch.recvQueue:
+			return []*pb.FromRadio{packet}, nil
+		}
+	} else {
+		t := time.NewTicker(time.Second * 5)
+		packets := []*pb.FromRadio{}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case p := <-dispatch.recvQueue:
+			packets = append(packets, p)
+		case <-t.C:
+			return packets, nil
+		}
+		return packets, nil
 	}
 }

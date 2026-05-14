@@ -10,26 +10,6 @@ import (
 	"github.com/pointnoreturn/monitor/libweather"
 )
 
-func parseGPS(env string) (float32, float32, error) {
-	parts := strings.Split(strings.TrimSpace(env), ",")
-
-	if len(parts) < 2 {
-		return 0, 0, fmt.Errorf("invalid GPS_FIX, expected lat,lon[,alt]")
-	}
-
-	lat64, err := strconv.ParseFloat(strings.TrimSpace(parts[0]), 32)
-	if err != nil {
-		return 0, 0, fmt.Errorf("invalid lat: %w", err)
-	}
-
-	lon64, err := strconv.ParseFloat(strings.TrimSpace(parts[1]), 32)
-	if err != nil {
-		return 0, 0, fmt.Errorf("invalid lon: %w", err)
-	}
-
-	return float32(lat64), float32(lon64), nil
-}
-
 func main() {
 	apiKey := os.Getenv("OWM_KEY")
 	if len(apiKey) == 0 {
@@ -87,4 +67,24 @@ func main() {
 	fmt.Printf("Rain: %t (%s)\n", w.IsRain, rainText)
 	fmt.Printf("Snow: %t (%s)\n", w.IsSnow, snowText)
 	fmt.Printf("Cloudiness: %.0f%%\n", w.Cloudiness)
+}
+
+func parseGPS(env string) (float32, float32, error) {
+	parts := strings.Split(strings.TrimSpace(env), ",")
+
+	if len(parts) < 2 {
+		return 0, 0, fmt.Errorf("invalid GPS_FIX, expected lat,lon[,alt]")
+	}
+
+	lat64, err := strconv.ParseFloat(strings.TrimSpace(parts[0]), 32)
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid lat: %w", err)
+	}
+
+	lon64, err := strconv.ParseFloat(strings.TrimSpace(parts[1]), 32)
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid lon: %w", err)
+	}
+
+	return float32(lat64), float32(lon64), nil
 }

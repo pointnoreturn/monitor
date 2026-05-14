@@ -12,6 +12,7 @@ func printPacket(p *pb.FromRadio) {
 	switch v := p.PayloadVariant.(type) {
 
 	case *pb.FromRadio_QueueStatus: // Ignore connection status metadata (heartbeat related)
+		fmt.Println("...")
 		return
 
 	// case *pb.FromRadio_NodeInfo:

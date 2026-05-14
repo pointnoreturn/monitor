@@ -24,16 +24,18 @@ type ProtoStream struct {
 	libradios.Reader[*pb.FromRadio]
 }
 
-func (r *ProtoStream) WritePacket(
+func (stream *ProtoStream) WritePacket(
 	ctx context.Context,
 	p *pb.ToRadio,
 ) error {
+
 	protobufPacket, err := proto.Marshal(p)
 	if err != nil {
 		return err
 	}
 
 	packageLength := len(protobufPacket)
+	//fmt.Printf("[WritePacket] %d bytes %T\n", packageLength, stream.Transport)
 
 	header := []byte{
 		start1,
@@ -44,12 +46,11 @@ func (r *ProtoStream) WritePacket(
 
 	data := append(header, protobufPacket...)
 
-	//fmt.Printf("[WritePacket] call Write() with %d bytes transport %T\n", len(data), r.Transport)
-
-	return r.Write(ctx, data)
+	return stream.Write(ctx, data)
 }
 
-func (r *ProtoStream) ReadPackets(ctx context.Context, timeout bool) ([]*pb.FromRadio, error) {
+func (stream *ProtoStream) ReadPackets(ctx context.Context, timeout bool) ([]*pb.FromRadio, error) {
+	//fmt.Printf("[ReadPackets] timeout %v on %T\n", timeout, stream.Transport)
 
 	readCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -63,7 +64,7 @@ func (r *ProtoStream) ReadPackets(ctx context.Context, timeout bool) ([]*pb.From
 
 	for {
 
-		n, err := r.Read(readCtx, b)
+		n, err := stream.Read(readCtx, b)
 
 		// -------------------------
 		// ONLY REAL FATAL ERRORS
@@ -145,14 +146,4 @@ func (r *ProtoStream) ReadPackets(ctx context.Context, timeout bool) ([]*pb.From
 	}
 
 	return packets, nil
-}
-
-func (r *ProtoStream) SendHeartbeat(ctx context.Context, nonce uint32) (err error) {
-	toRadio := pb.ToRadio{PayloadVariant: &pb.ToRadio_Heartbeat{
-		Heartbeat: &pb.Heartbeat{
-			Nonce: nonce,
-		},
-	}}
-
-	return r.WritePacket(ctx, &toRadio)
 }

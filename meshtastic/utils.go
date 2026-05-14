@@ -12,7 +12,7 @@ import (
 	"github.com/pointnoreturn/monitor/libradios"
 )
 
-const DefaultNodeTcpPort string = "4403"
+const DefaultPort int = 4403
 
 // Fix escaped emoji in Bonjour service descriptor
 func fixMeshtasticShortname(input string) string {
@@ -47,7 +47,7 @@ func EmojiFromUint32(e uint32) string {
 }
 
 // from list of discovered Bonjour services, extract anouncements for Meshtastic nodes
-func AsNodes(services []libradios.ResolvedService) []ResolvedNode {
+func ListNodes(services []libradios.ResolvedService) []ResolvedNode {
 	nodes := []ResolvedNode{}
 	for _, svc := range services {
 		if svc.Entry == nil {
@@ -104,25 +104,25 @@ func AsNodes(services []libradios.ResolvedService) []ResolvedNode {
 
 // with NodeInfo returns "canonical" common label like SHRT_nnnn
 // same as phone apps show this node without connection
-func GetNodeLabel(info *pb.NodeInfo) string {
+func GetNodeLabel(shortName string, nodeNum uint32) string {
+	strId := fmt.Sprintf("!%08x", nodeNum)
 
-	short := info.User.ShortName
-	nodeID := fmt.Sprintf("!%08x", info.Num)
-
-	if len(nodeID) >= 6 && nodeID[0] == '!' {
-		suffix := nodeID[len(nodeID)-4:]
-		return fmt.Sprintf("%s_%s", short, suffix)
-	} else if len(short) > 0 {
-		return short
+	if len(shortName) > 0 {
+		if len(strId) >= 6 && strId[0] == '!' {
+			strId = strId[len(strId)-4:]
+			return fmt.Sprintf("%s_%s", shortName, strId)
+		}
+		return fmt.Sprintf("%s_%s", strId, strId)
 	}
 
-	return fmt.Sprintf("%x_%x", info.Num, info.Num)
+	return strId
 }
 
 // find specific meshtastic node in the list
 func FindNode(target string, nodes []ResolvedNode) *ResolvedNode {
 	target = strings.Trim(target, "! ")
 	target = strings.ToLower(target)
+
 	for _, n := range nodes {
 		if strings.ToLower(n.Label) == target || strings.Contains(fmt.Sprintf("%x", n.NodeNum), target) { // match by host name or IP or fragment hex num
 			return &n

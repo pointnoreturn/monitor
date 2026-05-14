@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/pointnoreturn/monitor/meshtastic"
 
@@ -27,33 +28,38 @@ func main() {
 	nodedb := NewNodeDB()
 	go nodedb.Run(ctx)
 
-	// create and connect client
-	var client *meshtastic.Client = connect(ctx, nodedb.HandlePacket)
-	defer client.Close()
-	fmt.Printf("Connected to: %s (!%x) at %s\n", client.Label, client.MyNode.MyNodeNum, client.Port)
-
-	if client.MyNode == nil || client.MyNode.MyNodeNum == 0 {
-		panic("Client MyNodeInfo initialization has failed for some weird reason.")
+	targetNode := os.Getenv("TARGET_NODE")
+	if len(targetNode) == 0 {
+		panic("TARGET_NODE is empty")
 	}
 
+	// create and connect client
+	stream, myNodeInfo, nodeInfo, err := meshtastic.AutoConnect(ctx, targetNode, time.Second*5, meshtastic.ConfigId_ConfigOnly, nodedb.HandlePacket)
+	if err != nil {
+		panic(err)
+	}
+	defer stream.Close()
+
+	label := meshtastic.GetNodeLabel(nodeInfo.User.ShortName, nodeInfo.Num)
+	fmt.Printf("Connected to node: %s (!%x), pio %s\n", label, myNodeInfo.MyNodeNum, myNodeInfo.PioEnv)
+
 	// Run reporter
-	reporter := NewReporter(client.MyNode.MyNodeNum, nodedb)
+	reporter := NewReporter(myNodeInfo.MyNodeNum, nodedb)
 	go reporter.Run(ctx)
 
-	receivePacket := meshtastic.ChainPacketHandlers(
+	handlers := meshtastic.ChainPacketHandlers(
 		printPacket,
 		nodedb.HandlePacket,
 		reporter.HandlePacket,
 	)
 
 	// create dispatch with packet handlers configured
-	var dispatch *meshtastic.Dispatch = meshtastic.NewDispatch(&client.ProtoStream, 10, receivePacket)
+	var dispatch *meshtastic.Dispatch = meshtastic.NewDispatch(stream, 100, handlers)
 
 	// run packet handlers as Dispatch
-	err := dispatch.Run(ctx)
+	err = dispatch.Run(ctx)
 	if err != nil {
 		if !errors.Is(ctx.Err(), context.Canceled) {
-
 			fmt.Println("Critical error in Dispatch.Run()")
 			panic(err)
 		}

@@ -32,7 +32,7 @@ func main() {
 	}
 
 	fmt.Println("Get meshtastic nodes")
-	nodes := meshtastic.AsNodes(services)
+	nodes := meshtastic.ListNodes(services)
 	if len(nodes) == 0 {
 		panic("I have discovered no Meshtastic nodes among those services.")
 	}
@@ -47,13 +47,18 @@ func main() {
 	for _, n := range nodes {
 
 		fmt.Printf("test %s...\n", n.Service.Endpoint)
-		c, err := meshtastic.NewClient(ctx, n.Service.Endpoint, nil)
+		stream, myNodeInfo, nodeInfo, err := meshtastic.ConnectTCP(ctx, n.Service.Endpoint, meshtastic.DefaultPort, meshtastic.ConfigId_ConfigOnly, nil)
+		if stream != nil {
+			stream.Close()
+		}
+
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed %s (%s): %v\n", n.Service.Endpoint, n.Label, err)
 			continue
 		}
-		fmt.Printf("test OK: %s, !%x\n", c.Label, c.MyNode.MyNodeNum)
 
-		c.Close()
+		label := meshtastic.GetNodeLabel(nodeInfo.User.ShortName, nodeInfo.Num)
+
+		fmt.Printf("test OK: %s, !%x\n", label, myNodeInfo.MyNodeNum)
 	}
 }
