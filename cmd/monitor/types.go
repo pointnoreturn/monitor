@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 
-	pb "github.com/pointnoreturn/snake/github.com/meshtastic/go/generated"
+	pb "github.com/pointnoreturn/monitor/github.com/meshtastic/go/generated"
 )
 
 type Worker interface {

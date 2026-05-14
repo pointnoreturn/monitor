@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pointnoreturn/snake/libweather"
+	"github.com/pointnoreturn/monitor/libweather"
 )
 
 func parseGPS(env string) (float32, float32, error) {

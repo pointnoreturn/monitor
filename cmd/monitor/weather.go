@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pointnoreturn/snake/libweather"
+	"github.com/pointnoreturn/monitor/libweather"
 )
 
 func makeWeatherProvider() libweather.WeatherProvider {

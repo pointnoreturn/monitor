@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	pb "github.com/pointnoreturn/snake/github.com/meshtastic/go/generated"
+	pb "github.com/pointnoreturn/monitor/github.com/meshtastic/go/generated"
 )
 
 // firmware consts for want_config_id:

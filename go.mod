@@ -1,4 +1,4 @@
-module github.com/pointnoreturn/snake
+module github.com/pointnoreturn/monitor
 
 go 1.26.2
 

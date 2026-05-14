@@ -1,14 +1,15 @@
-# snake
+# monitor
 
 Meshtastic health reporting to track stationary nodes in Grafana
 
-     Meshtastic Node -> (Wi-Fi/USB) -> snake -> Victoria Metrics (DB) -> Grafana (display)
+     Meshtastic Node -> (Wi-Fi/USB) -> monitor -> Victoria Metrics (DB) -> Grafana (display)
 
 Collects useful stats for performance tests over time.
 
 
-# Development
 
+
+# Development
 
 Recompile protobufs (meshtastic subdmoule)
 

@@ -14,16 +14,16 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -trimpath -ldflags="-s -w" -o snake ./cmd/snake
+RUN go build -trimpath -ldflags="-s -w" -o monitor ./cmd/monitor
 
 
 FROM gcr.io/distroless/static-debian12:nonroot
 
 WORKDIR /
 
-COPY --from=builder /app/snake /snake
+COPY --from=builder /app/monitor /monitor
 COPY certs/ca-certificates.crt /etc/ssl/certs/
 
 USER nonroot:nonroot
 
-ENTRYPOINT ["/snake"]
+ENTRYPOINT ["/monitor"]

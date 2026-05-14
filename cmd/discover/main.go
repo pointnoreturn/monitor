@@ -8,8 +8,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/pointnoreturn/snake/libradios"
-	"github.com/pointnoreturn/snake/meshtastic"
+	"github.com/pointnoreturn/monitor/libradios"
+	"github.com/pointnoreturn/monitor/meshtastic"
 )
 
 func main() {

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	pb "github.com/pointnoreturn/snake/github.com/meshtastic/go/generated"
-	"github.com/pointnoreturn/snake/libradios"
+	pb "github.com/pointnoreturn/monitor/github.com/meshtastic/go/generated"
+	"github.com/pointnoreturn/monitor/libradios"
 )
 
 // default interval for periodic heartbeats

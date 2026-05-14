@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pointnoreturn/snake/libradios"
-	"github.com/pointnoreturn/snake/meshtastic"
+	"github.com/pointnoreturn/monitor/libradios"
+	"github.com/pointnoreturn/monitor/meshtastic"
 )
 
 func connect(ctx context.Context, handleConfig meshtastic.PacketF) *meshtastic.Client {

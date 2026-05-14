@@ -25,11 +25,11 @@ services:
     ports:
       - "0.0.0.0:3000:3000"
 
-  snake:
-    image: ghcr.io/pointnoreturn/snake:1.0
+  monitor:
+    image: ghcr.io/pointnoreturn/monitor:1.0
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: snake
+    env_file: .env
     restart: unless-stopped
     network_mode: host

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	pb "github.com/pointnoreturn/snake/github.com/meshtastic/go/generated"
-	"github.com/pointnoreturn/snake/meshtastic"
+	pb "github.com/pointnoreturn/monitor/github.com/meshtastic/go/generated"
+	"github.com/pointnoreturn/monitor/meshtastic"
 	"google.golang.org/protobuf/proto"
 )
 

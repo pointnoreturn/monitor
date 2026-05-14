@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/pointnoreturn/snake/meshtastic"
+	"github.com/pointnoreturn/monitor/meshtastic"
 
 	// This blank import triggers the automatic loading of .env
 	_ "github.com/joho/godotenv/autoload"

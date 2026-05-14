@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 
-	pb "github.com/pointnoreturn/snake/github.com/meshtastic/go/generated"
-	"github.com/pointnoreturn/snake/libweather"
+	pb "github.com/pointnoreturn/monitor/github.com/meshtastic/go/generated"
+	"github.com/pointnoreturn/monitor/libweather"
 )
 
 type Reporter struct {
