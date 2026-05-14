@@ -66,6 +66,9 @@ func (nodedb *NodeDB) updateUser(user *pb.User, hopsAway *uint32) {
 		} else {
 			infos = append(infos, fmt.Sprintf("hw_model (%d)", user.HwModel))
 		}
+		if len(user.PublicKey) > 0 {
+			infos = append(infos, "🔑 PKI")
+		}
 	}
 	fmt.Println("[NodeDB] " + strings.Join(infos, ", "))
 }
