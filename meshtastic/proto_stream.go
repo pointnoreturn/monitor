@@ -146,3 +146,13 @@ func (r *ProtoStream) ReadPackets(ctx context.Context, timeout bool) ([]*pb.From
 
 	return packets, nil
 }
+
+func (r *ProtoStream) SendHeartbeat(ctx context.Context, nonce uint32) (err error) {
+	toRadio := pb.ToRadio{PayloadVariant: &pb.ToRadio_Heartbeat{
+		Heartbeat: &pb.Heartbeat{
+			Nonce: nonce,
+		},
+	}}
+
+	return r.WritePacket(ctx, &toRadio)
+}

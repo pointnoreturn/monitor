@@ -18,18 +18,18 @@ const ConfigId_ConfigOnly = 69420
 // WantConfig may return node info, settings, node db during the initialization as series of packets to receive,
 // read them all as radioResponses
 // TODO: timeouts and receive full node db?? Use MyNodeInfo.NodedbCount to ensure full nodedb is received
-func (r *ProtoStream) WantConfig(ctx context.Context, id uint32) (radioResponses []*pb.FromRadio, err error) {
+func (c *Client) WantConfig(ctx context.Context, id uint32) (radioResponses []*pb.FromRadio, err error) {
 	toRadio := pb.ToRadio{PayloadVariant: &pb.ToRadio_WantConfigId{WantConfigId: id}} // only want self node info
 
 	fmt.Println("[WantConfig] call WritePacket")
-	err = r.WritePacket(ctx, &toRadio)
+	err = c.ProtoStream.WritePacket(ctx, &toRadio)
 	if err != nil {
 		return nil, err
 	}
 
 	fmt.Println("[WantConfig] call ReadPackets(timeout: true)")
 
-	radioResponses, err = r.ReadPackets(ctx, true)
+	radioResponses, err = c.ProtoStream.ReadPackets(ctx, true)
 	if err != nil {
 		return nil, err
 	}
@@ -41,14 +41,4 @@ func (r *ProtoStream) WantConfig(ctx context.Context, id uint32) (radioResponses
 	}
 	return
 
-}
-
-func (r *ProtoStream) SendHeartbeat(ctx context.Context, nonce uint32) (err error) {
-	nodeInfo := pb.ToRadio{PayloadVariant: &pb.ToRadio_Heartbeat{
-		Heartbeat: &pb.Heartbeat{
-			Nonce: nonce,
-		},
-	}}
-
-	return r.WritePacket(ctx, &nodeInfo)
 }

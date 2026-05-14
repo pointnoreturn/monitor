@@ -55,16 +55,16 @@ func (nodedb *NodeDB) update(nodeInfo *pb.NodeInfo) {
 
 func (nodedb *NodeDB) updateUser(user *pb.User, hopsAway *uint32) {
 	infos := []string{
-		fmt.Sprintf("User Id '%s' role %s name '%s' %s", user.Id, user.Role, user.ShortName, user.LongName),
+		fmt.Sprintf("User Id '%s' role %s name '%s' '%s'\t", user.Id, user.Role, user.ShortName, user.LongName),
 	}
 	if hopsAway != nil {
 		infos = append(infos, fmt.Sprintf("%d hops away", *hopsAway))
 	}
 	if user.HwModel != pb.HardwareModel_UNSET {
 		if hwName, ok := pb.HardwareModel_name[int32(user.HwModel)]; ok {
-			infos = append(infos, fmt.Sprintf("hw_model %s (%d)", hwName, user.HwModel))
+			infos = append(infos, fmt.Sprintf("📻 %s (%d)", hwName, user.HwModel))
 		} else {
-			infos = append(infos, fmt.Sprintf("hw_model (%d)", user.HwModel))
+			infos = append(infos, fmt.Sprintf("📻 (%d)", user.HwModel))
 		}
 		if len(user.PublicKey) > 0 {
 			infos = append(infos, "🔑 PKI")

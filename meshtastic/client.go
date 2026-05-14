@@ -136,7 +136,7 @@ func (c *Client) initialize(ctx context.Context, configId uint32, configHandler 
 func (c *Client) initializeBase(ctx context.Context, configId uint32, verifyCompleteId bool) (*pb.MyNodeInfo, []*pb.FromRadio, error) {
 	fmt.Println("[initializeBase] call WantConfig")
 
-	responses, err := c.ProtoStream.WantConfig(ctx, configId)
+	responses, err := c.WantConfig(ctx, configId)
 	if err != nil {
 		return nil, responses, err
 	}

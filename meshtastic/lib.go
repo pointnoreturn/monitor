@@ -102,6 +102,8 @@ func AsNodes(services []libradios.ResolvedService) []ResolvedNode {
 	return nodes
 }
 
+// with NodeInfo returns "canonical" common label like SHRT_nnnn
+// same as phone apps show this node without connection
 func GetNodeLabel(info *pb.NodeInfo) string {
 
 	short := info.User.ShortName
@@ -114,9 +116,10 @@ func GetNodeLabel(info *pb.NodeInfo) string {
 		return short
 	}
 
-	return fmt.Sprintf("!%x", info.Num)
+	return fmt.Sprintf("%x_%x", info.Num, info.Num)
 }
 
+// find specific meshtastic node in the list
 func FindNode(target string, nodes []ResolvedNode) *ResolvedNode {
 	target = strings.Trim(target, "! ")
 	target = strings.ToLower(target)
@@ -129,6 +132,7 @@ func FindNode(target string, nodes []ResolvedNode) *ResolvedNode {
 	return nil
 }
 
+// try get approximate (!) number of hops on the received mesh packet
 func HopsAway(pkt *pb.MeshPacket) uint32 {
 	if pkt.HopStart == 0 {
 		return 0
