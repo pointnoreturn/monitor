@@ -3,6 +3,8 @@ package main
 import (
 	"log/slog"
 	"os"
+
+	"github.com/pointnoreturn/monitor/libmetric"
 )
 
 var (
@@ -46,4 +48,5 @@ func init() {
 	if envVMURL == "" {
 		panic("No VICTORIA_METRICS env set.")
 	}
+	libmetric.Init(envVMURL, appLog)
 }

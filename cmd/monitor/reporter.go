@@ -2,10 +2,19 @@ package main
 
 import (
 	"context"
-	"strconv"
+	"fmt"
+	"time"
 
 	pb "github.com/pointnoreturn/monitor/github.com/meshtastic/go/generated"
+	"github.com/pointnoreturn/monitor/libmetric"
 	"github.com/pointnoreturn/monitor/libweather"
+)
+
+var (
+	runtimeSeconds = libmetric.AutoWrite{
+		Name:          "runtime",
+		WriteInterval: time.Minute * 7,
+	}
 )
 
 type Reporter struct {
@@ -13,16 +22,22 @@ type Reporter struct {
 	weather libweather.WeatherProvider
 }
 
-func (reporter *Reporter) Init(ctx context.Context) {
-	reporter.weather = makeWeatherProvider(appLog)
+func (r *Reporter) Init(ctx context.Context) {
+	r.weather = makeWeatherProvider(appLog)
 }
 
-func (reporter *Reporter) Run(ctx context.Context) {
-	WriteMetric(
-		"uptime", 0,
-		"self", strconv.Itoa(int(myNodeInfo.MyNodeNum)),
-	)
+func (r *Reporter) Run(ctx context.Context) {
+	interval := time.Minute
+	t := time.NewTicker(interval)
+	for {
+		select {
+		case <-t.C:
+			runtimeSeconds.Add(interval.Seconds(), "self", fmt.Sprintf("%x", myNodeInfo.MyNodeNum))
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
-func (reporter *Reporter) HandlePacket(p *pb.FromRadio) {
+func (r *Reporter) HandlePacket(p *pb.FromRadio) {
 }
