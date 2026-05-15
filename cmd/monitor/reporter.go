@@ -41,27 +41,22 @@ var (
 		Name:     "rssi_p50",
 		Function: libmetric.MedianP50,
 		MinCount: 100,
-		MaxCount: 4000,
+		MaxCount: 1000,
 	}
 	rxSnr = libmetric.Sampler{
 		Name:     "snr_p50",
 		Function: libmetric.MedianP50,
 		MinCount: 100,
-		MaxCount: 4000,
+		MaxCount: 1000,
 	}
 
-	weatherDifficulty = libmetric.Sampler{
-		Name:     "weather_difficulty",
-		Function: libmetric.Median,
-		MinCount: 10,
-		MaxCount: 50,
-	}
-	weatherTempA = libmetric.AutoCommit{"temp_a"}
+	weatherDifficulty = libmetric.AutoCommit{"weather_difficulty"}
+	weatherTempA      = libmetric.AutoCommit{"temp_a"}
 
 	groups = []libmetric.Group{
 		{Interval: time.Second * 10},
-		{Interval: time.Minute},
-		{Interval: time.Minute * 5},
+		{Interval: time.Minute * 3},
+		{Interval: time.Minute * 7},
 		{Interval: time.Minute * 15},
 	}
 )
@@ -83,7 +78,7 @@ func (r *Reporter) Run(ctx context.Context) {
 		ok := runtime.Add(
 			seconds,
 			"self", fmt.Sprintf("%x", myNodeInfo.MyNodeNum),
-			"pio", myNodeInfo.PioEnv,
+			"pio_env", myNodeInfo.PioEnv,
 			"hw", strconv.Itoa(int(nodeInfo.User.HwModel)),
 		)
 		if !ok {
@@ -101,7 +96,7 @@ func (r *Reporter) Run(ctx context.Context) {
 					"self", fmt.Sprintf("%x", myNodeInfo.MyNodeNum),
 					"location", w.Name,
 				}
-				groups[groupId].Sample(
+				groups[groupId].Set(
 					&weatherDifficulty, float64(w.RadioDifficulty()),
 					labels...,
 				)
@@ -146,20 +141,35 @@ func (r *Reporter) HandlePacket(p *pb.FromRadio) {
 
 		labels := []string{"self", fmt.Sprintf("%x", myNodeInfo.MyNodeNum)}
 
-		logSenders(pkt, labels)
 		logRX(pkt, labels)
+		logDirect(pkt, labels)
 		logContent(pkt, labels)
+		logSenders(pkt, labels)
 	}
 }
 
 func logRX(pkt *pb.MeshPacket, labels []string) {
-	groups[2].Sample(&rxRssi, float64(pkt.RxRssi), labels...)
-	groups[2].Sample(&rxSnr, float64(pkt.RxSnr), labels...)
+	groups[1].Sample(&rxRssi, float64(pkt.RxRssi), labels...)
+	groups[1].Sample(&rxSnr, float64(pkt.RxSnr), labels...)
+
+	if d := pkt.GetDecoded(); d != nil {
+		labels = append(labels, "port", d.Portnum.String())
+	} else {
+		labels = append(labels, "port", "UNKNOWN_APP")
+	}
+
+	groups[0].AddOne(&totalRX, labels...)
+}
+
+func logDirect(pkt *pb.MeshPacket, labels []string) {
+	hopsAway := int(meshtastic.HopsAway(pkt))
+	if hopsAway > 0 {
+		return
+	}
 
 	isStrong := pkt.RxRssi > -105 && pkt.RxSnr > -5
 	labels = append(labels, "strong", boolStr[isStrong])
-
-	groups[0].AddOne(&totalRX, labels...)
+	groups[0].AddOne(&rxDirect, labels...)
 }
 
 func logSenders(pkt *pb.MeshPacket, labels []string) {
@@ -168,9 +178,6 @@ func logSenders(pkt *pb.MeshPacket, labels []string) {
 
 	if hopsAway <= 3 {
 		groups[0].AddOne(&rxProximity, labels...)
-	}
-	if hopsAway == 0 {
-		groups[0].AddOne(&rxDirect, labels...)
 	}
 
 	labels = append(labels, "hops", strconv.Itoa(hopsAway))
@@ -184,8 +191,5 @@ func logContent(pkt *pb.MeshPacket, labels []string) {
 		return
 	}
 
-	s := d.Portnum.String()
-	fmt.Println(s)
-	labels = append(labels, "port", s)
 	groups[0].AddOne(&totalDecoded, labels...)
 }

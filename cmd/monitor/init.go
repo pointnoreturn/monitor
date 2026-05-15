@@ -28,7 +28,7 @@ var (
 )
 
 func init() {
-	level := slog.LevelInfo
+	level := slog.LevelDebug
 
 	if envLogLevel == "debug" {
 		level = slog.LevelDebug
@@ -54,5 +54,5 @@ func init() {
 	if victoriaMetricsUrl == "" {
 		panic("No VICTORIA_METRICS env set.")
 	}
-	libmetric.Init(victoriaMetricsUrl, libLog)
+	libmetric.Init(victoriaMetricsUrl, appLog)
 }

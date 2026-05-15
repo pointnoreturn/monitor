@@ -14,9 +14,10 @@ var (
 )
 
 type Series struct {
-	key, name, labels string
-	data              atomic.Uint64
-	changed           bool
+	key, name string
+	labels    []string
+	data      atomic.Uint64
+	changed   bool
 }
 
 func makeKey(name string, labels []string) string {
@@ -38,7 +39,7 @@ func MakeSeries(name string, labels ...string) (*Series, error) {
 	c = &Series{
 		key:    key,
 		name:   name,
-		labels: strings.Join(labels, ","),
+		labels: labels,
 	}
 
 	var (
@@ -108,8 +109,9 @@ func (c *Series) Commit() error {
 		return nil
 	}
 
-	err := WriteMetric(c.name, c.Value(), c.labels)
-	if err == nil {
+	err := WriteMetric(c.name, c.Value(), c.labels...)
+	if err != nil {
+		logger.Error("[Series] Commit failed with error", "err", err)
 		c.changed = false
 	}
 	return err

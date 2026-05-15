@@ -18,7 +18,6 @@ services:
       - 0.0.0.0:3000:3000
 
   monitor:
-    image: ghcr.io/pointnoreturn/monitor:1.2
     build:
       context: .
       dockerfile: Dockerfile

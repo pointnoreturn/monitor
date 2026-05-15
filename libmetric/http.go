@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -75,6 +76,7 @@ func ReadMetric(name string, labels ...string) (float64, error) {
 	return val, nil
 }
 func WriteMetric(name string, value float64, labels ...string) error {
+	logger.Debug("[WriteMetric]", "name", name, "labels", labels)
 
 	if len(labels)%2 != 0 {
 		return fmt.Errorf("labels must be key/value pairs")
@@ -108,8 +110,10 @@ func WriteMetric(name string, value float64, labels ...string) error {
 		strings.NewReader(sb.String()),
 	)
 
+	logger.Debug(fmt.Sprintf("[WriteMetric] %s", name))
+
 	if err != nil {
-		logger.Debug(fmt.Sprintf("[WriteMetric] cannot send value %f for %s (%d labels): %v", value, name, len(labels)/2, err))
+		logger.Error(fmt.Sprintf("[WriteMetric] cannot send value %f for %s (%d labels): %v", value, name, len(labels)/2, err))
 		return err
 	}
 	defer resp.Body.Close()
@@ -121,6 +125,68 @@ func WriteMetric(name string, value float64, labels ...string) error {
 	}
 
 	logger.Debug(fmt.Sprintf("[WriteMetric] saved value %f for %s (%d labels)", value, name, len(labels)/2))
+
+	return nil
+}
+
+func WriteMetrics(counters []*Series) error {
+
+	var sb strings.Builder
+
+	for i, c := range counters {
+
+		val := c.data.Load()
+
+		sb.WriteString(c.name)
+
+		if len(c.labels) > 0 {
+
+			if len(c.labels)%2 != 0 {
+				return fmt.Errorf("labels must be key/value pairs")
+			}
+
+			sb.WriteByte('{')
+
+			for j := 0; j < len(c.labels); j += 2 {
+
+				if j > 0 {
+					sb.WriteByte(',')
+				}
+
+				sb.WriteString(c.labels[j])
+				sb.WriteByte('=')
+				sb.WriteByte('"')
+				sb.WriteString(c.labels[j+1])
+				sb.WriteByte('"')
+			}
+
+			sb.WriteByte('}')
+		}
+
+		sb.WriteString(" value=")
+		sb.WriteString(strconv.FormatUint(val, 10))
+
+		if i < len(counters)-1 {
+			sb.WriteByte('\n')
+		}
+
+		logger.Debug(fmt.Sprintf("[WriteMetrics] %s", c.name))
+	}
+
+	resp, err := http.Post(
+		vmURL+"/write",
+		"text/plain",
+		strings.NewReader(sb.String()),
+	)
+
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("victoriametrics returned %s", resp.Status)
+	}
 
 	return nil
 }

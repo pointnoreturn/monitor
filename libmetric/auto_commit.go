@@ -6,7 +6,8 @@ type AutoCommit struct {
 
 func (g *AutoCommit) AddOne(labels ...string) bool {
 	s, err := MakeSeries(g.Name, labels...)
-	if err == nil {
+	if err != nil {
+		// todo log
 		return false
 	}
 
@@ -21,7 +22,8 @@ func (g *AutoCommit) AddOne(labels ...string) bool {
 
 func (g *AutoCommit) Add(x float64, labels ...string) bool {
 	s, err := MakeSeries(g.Name, labels...)
-	if err == nil {
+	if err != nil {
+		// todo log
 		return false
 	}
 
@@ -36,7 +38,8 @@ func (g *AutoCommit) Add(x float64, labels ...string) bool {
 
 func (g *AutoCommit) Set(x float64, labels ...string) bool {
 	s, err := MakeSeries(g.Name, labels...)
-	if err == nil {
+	if err != nil {
+		// todo log
 		return false
 	}
 

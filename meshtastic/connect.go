@@ -136,7 +136,7 @@ func FindAndConnect(ctx context.Context, log *slog.Logger, targetNode string, ti
 		log.Info(fmt.Sprintf("Parsed %s as IP endpoint %s", targetNode, ipEndpoint))
 		stream, myNodeInfo, nodeInfo, err := ConnectTCP(ctx, log, ipEndpoint, wantConfigId, handleConfig)
 		if err != nil {
-			err := fmt.Errorf("Failed to connect tcp using discovery '%s': %w", targetNode, err)
+			err := fmt.Errorf("Failed ConnectTCP '%s': %w", targetNode, err)
 			return nil, nil, nil, err
 		}
 
@@ -177,7 +177,7 @@ func FindAndConnect(ctx context.Context, log *slog.Logger, targetNode string, ti
 			log.Debug(fmt.Sprintf("[FindAndConnect] Connect to node %s\n", n.Service.Endpoint))
 			stream, myNodeInfo, nodeInfo, err := ConnectTCP(ctx, log, n.Service.Endpoint, wantConfigId, handleConfig)
 			if err != nil {
-				err := fmt.Errorf("Failed to connect tcp using discovery '%s': %w", targetNode, err)
+				err := fmt.Errorf("Failed ConnectTCP '%s': %w", targetNode, err)
 				return nil, nil, nil, err
 			}
 
