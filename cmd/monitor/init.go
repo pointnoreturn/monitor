@@ -6,7 +6,8 @@ import (
 )
 
 var (
-	log         *slog.Logger
+	appLog      *slog.Logger
+	libLog      *slog.Logger
 	envVMURL    = os.Getenv("VICTORIA_METRICS")
 	envLogLevel = os.Getenv("LOG_LEVEL")
 )
@@ -18,18 +19,27 @@ func init() {
 		level = slog.LevelDebug
 	}
 
-	log = slog.New(
+	r := func(
+		groups []string,
+		a slog.Attr,
+	) slog.Attr {
+		if a.Key == slog.TimeKey {
+			return slog.Attr{}
+		}
+		return a
+	}
+
+	appLog = slog.New(
 		slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-			Level: level,
-			ReplaceAttr: func(
-				groups []string,
-				a slog.Attr,
-			) slog.Attr {
-				if a.Key == slog.TimeKey {
-					return slog.Attr{}
-				}
-				return a
-			},
+			Level:       level,
+			ReplaceAttr: r,
+		}),
+	)
+
+	libLog = slog.New(
+		slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			Level:       slog.LevelWarn,
+			ReplaceAttr: r,
 		}),
 	)
 

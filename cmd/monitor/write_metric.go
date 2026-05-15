@@ -45,7 +45,7 @@ func WriteMetric(
 	)
 
 	if err != nil {
-		log.Error(fmt.Sprintf("[WriteMetric] Error for %s, %T %v", name, err, err))
+		appLog.Error(fmt.Sprintf("[WriteMetric] Error for %s, %T %v", name, err, err))
 		return err
 	}
 
@@ -54,11 +54,11 @@ func WriteMetric(
 	if resp.StatusCode >= 300 {
 		err = fmt.Errorf("victoriametrics returned %s", resp.Status)
 
-		log.Error(fmt.Sprintf("[WriteMetric] Error for %s, %v", name, err))
+		appLog.Error(fmt.Sprintf("[WriteMetric] Error for %s, %v", name, err))
 		return err
 	}
 
-	log.Debug(fmt.Sprintf("[WriteMetric] %s = %f", name, value))
+	appLog.Debug(fmt.Sprintf("[WriteMetric] %s = %f", name, value))
 
 	return nil
 }

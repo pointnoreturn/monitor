@@ -51,10 +51,10 @@ func main() {
 
 	var err error
 
-	stream, myNodeInfo, nodeInfo, err = meshtastic.FindAndConnect(ctx, log, targetNode, time.Second*10, meshtastic.ConfigId_ConfigOnly, db.HandlePacket)
+	stream, myNodeInfo, nodeInfo, err = meshtastic.FindAndConnect(ctx, libLog, targetNode, time.Second*10, meshtastic.ConfigId_ConfigOnly, db.HandlePacket)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			log.Error("Cannot find target node to connect: " + targetNode)
+			appLog.Error("Cannot find target node to connect: " + targetNode)
 			os.Exit(2)
 		}
 		panic(err)
@@ -62,7 +62,7 @@ func main() {
 	defer stream.Close()
 
 	label := meshtastic.GetNodeLabel(nodeInfo.User.ShortName, nodeInfo.Num)
-	log.Info("Connected node "+label,
+	appLog.Info("Connected node "+label,
 		"label", label,
 		"self", myNodeInfo.MyNodeNum,
 		"pio_env", myNodeInfo.PioEnv,
@@ -73,11 +73,11 @@ func main() {
 	go db.Run(ctx)
 	go reporter.Run(ctx)
 
-	log.Info("Monitor dispatch running")
+	appLog.Info("Monitor dispatch running")
 	err = dispatch.Run(ctx)
 	if err != nil {
 		if !errors.Is(ctx.Err(), context.Canceled) {
-			log.Error("Critical error in Dispatch.Run()", "err", err)
+			appLog.Error("Critical error in Dispatch.Run()", "err", err)
 			os.Exit(1)
 		}
 	}
