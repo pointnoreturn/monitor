@@ -3,6 +3,7 @@ package libradios
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -10,7 +11,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-func BrowseBroadcasts(ctx context.Context, outService chan *Broadcast) error {
+func BrowseBroadcasts(ctx context.Context, log *slog.Logger, outService chan *Broadcast) error {
 	defer close(outService)
 
 	entries := make(chan *zeroconf.ServiceEntry)
@@ -27,7 +28,7 @@ func BrowseBroadcasts(ctx context.Context, outService chan *Broadcast) error {
 				continue
 			}
 
-			fmt.Printf("Entry: %+v\n", e)
+			log.Debug(fmt.Sprintf("[BrowseBroadcasts] Entry: %+v\n", e))
 
 			endpoint := ""
 			if len(e.AddrIPv4) > 0 {

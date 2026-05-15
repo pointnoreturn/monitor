@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -12,6 +13,23 @@ import (
 	"github.com/pointnoreturn/monitor/meshtastic"
 )
 
+var log *slog.Logger
+
+func init() {
+	log = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+		ReplaceAttr: func(
+			groups []string,
+			a slog.Attr,
+		) slog.Attr {
+			if a.Key == slog.TimeKey {
+				return slog.Attr{}
+			}
+			return a
+		},
+	}))
+}
+
 func main() {
 	ctx, stop := signal.NotifyContext(
 		context.Background(),
@@ -20,7 +38,6 @@ func main() {
 		syscall.SIGHUP,
 	)
 	defer stop()
-	fmt.Println("Discover advertised meshtastic nodes on the network")
 
 	// browse timeout to wait for node announces
 	timeoutContext, cancel := context.WithTimeout(ctx, time.Second*7)
@@ -29,6 +46,8 @@ func main() {
 	// Channels for browsing
 	bs := make(chan *libradios.Broadcast)
 	bn := make(chan *meshtastic.BroadcastNode)
+
+	log.Info("Browse advertised meshtastic nodes on the network")
 
 	// Pull observed nodes on the network to list
 	allNodes := []*meshtastic.BroadcastNode{}
@@ -49,29 +68,29 @@ func main() {
 		}
 	}()
 
-	go libradios.BrowseBroadcasts(timeoutContext, bs)
-	meshtastic.BrowseNodes(timeoutContext, bs, bn)
+	go libradios.BrowseBroadcasts(timeoutContext, log, bs)
+	meshtastic.BrowseNodes(timeoutContext, log, bs, bn)
 
-	fmt.Printf("Total %d meshtastic nodes. Try connect-and-disconnect...\n", len(allNodes))
+	log.Info(fmt.Sprintf("Total %d meshtastic nodes. Try connect-and-disconnect...", len(allNodes)))
 	if len(allNodes) == 0 {
 		panic("No nodes found")
 	}
 
 	for _, n := range allNodes {
 
-		fmt.Printf("test %s...\n", n.Service.Endpoint)
-		stream, myNodeInfo, nodeInfo, err := meshtastic.ConnectTCP(ctx, n.Service.Endpoint, meshtastic.ConfigId_ConfigOnly, nil)
+		log.Info(fmt.Sprintf("Test %s", n.Service.Endpoint))
+		stream, myNodeInfo, nodeInfo, err := meshtastic.ConnectTCP(context.Background(), log, n.Service.Endpoint, meshtastic.ConfigId_ConfigOnly, nil)
 		if stream != nil {
 			stream.Close()
 		}
 
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed %s (%s): %v\n", n.Service.Endpoint, n.Label, err)
+			log.Error(fmt.Sprintf("Failed %s (%s): %v\n", n.Service.Endpoint, n.Label, err))
 			continue
 		}
 
 		label := meshtastic.GetNodeLabel(nodeInfo.User.ShortName, nodeInfo.Num)
 
-		fmt.Printf("test OK: %s, !%x\n", label, myNodeInfo.MyNodeNum)
+		log.Info(fmt.Sprintf("Succeded: %s, !%x\n", label, myNodeInfo.MyNodeNum))
 	}
 }

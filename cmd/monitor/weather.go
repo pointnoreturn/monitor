@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strconv"
 	"strings"
@@ -9,29 +10,30 @@ import (
 	"github.com/pointnoreturn/monitor/libweather"
 )
 
-func makeWeatherProvider() libweather.WeatherProvider {
+func makeWeatherProvider(log *slog.Logger) libweather.WeatherProvider {
 	apiKey := os.Getenv("OWM_KEY")
 	if len(apiKey) == 0 {
-		fmt.Fprintln(os.Stderr, "WARN: no OWM_KEY, api key for OpenWeatherMap. Weather cannot work")
+		log.Warn("[weather] no OWM_KEY, api key for OpenWeatherMap. Not initializing weather")
 		return nil
 	}
 
 	gps := os.Getenv("GPS_FIX")
 	if gps == "" {
-		fmt.Fprintln(os.Stderr, "WARN: no GPS_FIX, weather cannot work")
+		log.Warn("[weather] no GPS_FIX. Not initializing weather")
 		return nil
 	}
 
 	coordsLat, coordsLon, err := parseGPS(gps)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "ERROR: Failed to parse GPS_FIX")
-		panic(err)
+		e := fmt.Sprintf("[weather] Failed to parse GPS_FIX, provided coordinates for weather: '%s'", gps)
+		log.Error(e)
+		panic(e)
 	}
 
 	owm := libweather.NewOpenWeatherMap(apiKey)
 	owm.SetCoordinates(coordsLat, coordsLon)
 
-	fmt.Println("Weather provider ready (OpenWeatherMap)")
+	log.Info("[weather] Weather provider ready (OpenWeatherMap)")
 
 	return owm
 }

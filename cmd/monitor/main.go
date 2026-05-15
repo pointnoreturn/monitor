@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -34,9 +34,6 @@ func main() {
 	)
 	defer stop()
 
-	db.Init(ctx)
-	reporter.Init(ctx)
-
 	handlers := meshtastic.ChainPacketHandlers(
 		printPacket,
 		db.HandlePacket,
@@ -45,33 +42,40 @@ func main() {
 
 	targetNode := os.Getenv("TARGET_NODE")
 	if len(targetNode) == 0 {
-		panic("TARGET_NODE is empty")
+		slog.Error("TARGET_NODE is empty")
+		os.Exit(3)
 	}
 
 	var err error
 
-	stream, myNodeInfo, nodeInfo, err = meshtastic.FindAndConnect(ctx, targetNode, time.Second*10, meshtastic.ConfigId_ConfigOnly, db.HandlePacket)
+	stream, myNodeInfo, nodeInfo, err = meshtastic.FindAndConnect(ctx, log, targetNode, time.Second*10, meshtastic.ConfigId_ConfigOnly, db.HandlePacket)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			panic("Cannot find target node to connect: " + targetNode)
+			log.Error("Cannot find target node to connect: " + targetNode)
+			os.Exit(2)
 		}
 		panic(err)
 	}
 	defer stream.Close()
 
 	label := meshtastic.GetNodeLabel(nodeInfo.User.ShortName, nodeInfo.Num)
-	fmt.Printf("Connected node: %s (!%x), pio %s\n", label, myNodeInfo.MyNodeNum, myNodeInfo.PioEnv)
+	log.Info("Connected node "+label,
+		"label", label,
+		"self", myNodeInfo.MyNodeNum,
+		"pio_env", myNodeInfo.PioEnv,
+	)
 
 	dispatch = meshtastic.NewDispatch(stream, 100, handlers)
 
 	go db.Run(ctx)
 	go reporter.Run(ctx)
 
+	log.Info("Monitor dispatch running")
 	err = dispatch.Run(ctx)
 	if err != nil {
 		if !errors.Is(ctx.Err(), context.Canceled) {
-			fmt.Println("Critical error in Dispatch.Run()")
-			panic(err)
+			log.Error("Critical error in Dispatch.Run()", "err", err)
+			os.Exit(1)
 		}
 	}
 }

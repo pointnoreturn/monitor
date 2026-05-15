@@ -3,7 +3,9 @@ package meshtastic
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
+	"log/slog"
 	"time"
 
 	pb "github.com/pointnoreturn/monitor/github.com/meshtastic/go/generated"
@@ -22,6 +24,7 @@ type ProtoStream struct {
 	libradios.Transport
 	libradios.Writer[*pb.ToRadio]
 	libradios.Reader[*pb.FromRadio]
+	Log *slog.Logger
 }
 
 func (stream *ProtoStream) WritePacket(
@@ -35,7 +38,7 @@ func (stream *ProtoStream) WritePacket(
 	}
 
 	packageLength := len(protobufPacket)
-	//fmt.Printf("[WritePacket] %d bytes %T\n", packageLength, stream.Transport)
+	stream.Log.Debug(fmt.Sprintf("[WritePacket] %d bytes %T\n", packageLength, stream.Transport))
 
 	header := []byte{
 		start1,
@@ -50,7 +53,7 @@ func (stream *ProtoStream) WritePacket(
 }
 
 func (stream *ProtoStream) ReadPackets(ctx context.Context, timeout bool) ([]*pb.FromRadio, error) {
-	//fmt.Printf("[ReadPackets] timeout %v on %T\n", timeout, stream.Transport)
+	stream.Log.Debug(fmt.Sprintf("[ReadPackets] timeout %v on %T\n", timeout, stream.Transport))
 
 	readCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()

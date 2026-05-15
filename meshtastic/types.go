@@ -12,7 +12,7 @@ type Reader libradios.Reader[*pb.FromRadio]
 type BroadcastNode struct {
 	Service   *libradios.Broadcast // bonjour header
 	NodeNum   uint32               // node number
-	ShortName string               // short name, if any
+	ShortName string               // short name, if set
 	Label     string               // replicate phone app label of a network node SHRT_nnnn or nnnn_nnnn
 }
 

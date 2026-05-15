@@ -99,33 +99,6 @@ func (s *SerialStream) Write(ctx context.Context, p []byte) error {
 	return nil
 }
 
-// func (s *SerialStream) Read(ctx context.Context, p []byte) (int, error) {
-// 	select {
-// 	case <-ctx.Done():
-// 		return 0, ctx.Err()
-// 	default:
-// 	}
-
-// 	if dl, ok := s.serialPort.(interface {
-// 		SetReadDeadline(time.Time) error
-// 	}); ok {
-// 		_ = dl.SetReadDeadline(time.Now().Add(200 * time.Millisecond))
-// 	}
-
-// 	n, err := s.serialPort.Read(p)
-// 	if err != nil {
-// 		if errors.Is(err, os.ErrDeadlineExceeded) {
-// 			return n, err
-// 		}
-// 		if ne, ok := err.(net.Error); ok && ne.Timeout() {
-// 			return n, err
-// 		}
-// 		return n, err
-// 	}
-
-// 	return n, nil
-// }
-
 func (s *SerialStream) Read(ctx context.Context, p []byte) (int, error) {
 	select {
 	case <-ctx.Done():

@@ -17,8 +17,6 @@ const ConfigId_ConfigOnly = 69420
 // send a heartbeat, node will send a response to keep connection alive if needed
 // in TCP, losing connection may remain undetected without trying send anything.
 func Heartbeat(ctx context.Context, stream Writer, nonce uint32) (err error) {
-	//fmt.Println("[Heartbeat]")
-
 	toRadio := pb.ToRadio{PayloadVariant: &pb.ToRadio_Heartbeat{
 		Heartbeat: &pb.Heartbeat{
 			Nonce: nonce,
@@ -42,20 +40,20 @@ func Send(ctx context.Context, stream Writer, toRadio *pb.ToRadio) (err error) {
 func WantConfig(ctx context.Context, stream *ProtoStream, id uint32) (radioResponses []*pb.FromRadio, err error) {
 	toRadio := pb.ToRadio{PayloadVariant: &pb.ToRadio_WantConfigId{WantConfigId: id}} // only want self node info
 
-	fmt.Println("[WantConfig] call WritePacket")
+	stream.Log.Debug("[WantConfig] call WritePacket")
 	err = stream.WritePacket(ctx, &toRadio)
 	if err != nil {
 		return nil, err
 	}
 
-	fmt.Println("[WantConfig] call ReadPackets(timeout: true)")
+	stream.Log.Debug("[WantConfig] call ReadPackets")
 
 	radioResponses, err = stream.ReadPackets(ctx, true)
 	if err != nil {
 		return nil, err
 	}
 
-	fmt.Printf("[WantConfig] no error, %d responses read.\n", len(radioResponses))
+	stream.Log.Debug(fmt.Sprintf("[WantConfig] no error, %d responses read.\n", len(radioResponses)))
 
 	if len(radioResponses) == 0 {
 		return nil, errors.New("failed to get radio info")
@@ -65,22 +63,21 @@ func WantConfig(ctx context.Context, stream *ProtoStream, id uint32) (radioRespo
 }
 
 func WantConfigSequence(ctx context.Context, stream *ProtoStream, configId uint32, verifyCompleteId bool) (*pb.MyNodeInfo, []*pb.FromRadio, error) {
-	fmt.Println("[wantConfigSequence] call WantConfig")
+	stream.Log.Debug("[WantConfigSequence] call WantConfig")
 
 	responses, err := WantConfig(ctx, stream, configId)
 	if err != nil {
 		return nil, responses, err
 	}
 
-	fmt.Printf("DEBUG: [wantConfigSequence] WantConfig(%d) got %d responses\n", configId, len(responses))
+	stream.Log.Debug(fmt.Sprintf("[WantConfigSequence] WantConfig(%d) got %d responses\n", configId, len(responses)))
 
 	var myNodeInfo *pb.MyNodeInfo
 	for i, p := range responses {
-		fmt.Printf("Response %d %T\n", i, p.PayloadVariant)
+		stream.Log.Debug(fmt.Sprintf("[WantConfigSequence] Response %d %T\n", i, p.PayloadVariant))
 		if info := p.GetMyInfo(); info != nil {
-			fmt.Println("assigned myNodeInfo")
 			myNodeInfo = info
-			fmt.Printf("Data: %v\n", myNodeInfo)
+			stream.Log.Debug(fmt.Sprintf("[WantConfigSequence] myNodeInfo Data: %+v\n", myNodeInfo))
 		}
 	}
 
@@ -103,6 +100,8 @@ func WantConfigSequence(ctx context.Context, stream *ProtoStream, configId uint3
 			return myNodeInfo, responses, fmt.Errorf("config_complete_id expected with value %d, have %d.", configId, completeId)
 		}
 	}
+
+	stream.Log.Debug("[WantConfigSequence] end")
 
 	return myNodeInfo, responses, nil
 }

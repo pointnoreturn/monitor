@@ -52,7 +52,9 @@ func (dispatch *Dispatch) Run(ctx context.Context) error {
 	keepAlive := time.NewTicker(heartbeatInterval)
 	defer keepAlive.Stop()
 
-	fmt.Println("[Dispatch] Running")
+	log := dispatch.stream.Log
+
+	log.Debug("[Dispatch] Running")
 
 	lastPacket := time.Now()
 
@@ -68,7 +70,7 @@ func (dispatch *Dispatch) Run(ctx context.Context) error {
 			heartbeats += 1
 			err := Heartbeat(ctx, dispatch.stream, heartbeats)
 			if err != nil {
-				fmt.Printf("Heartbeat write failed with Err %T\n", err)
+				log.Error(fmt.Sprintf("[Dispatch] Heartbeat write failed with Err %T %v", err, err))
 				return err
 			}
 
@@ -76,7 +78,7 @@ func (dispatch *Dispatch) Run(ctx context.Context) error {
 		case p := <-dispatch.sendQueue:
 			err := dispatch.stream.WritePacket(ctx, p)
 			if err != nil {
-				fmt.Printf("WritePacket queued in Dispatch failed with Err %T\n", err)
+				log.Error(fmt.Sprintf("Dispatch] WritePacket queued in Dispatch failed with Err %T %v", err, err))
 				return err
 			}
 
@@ -84,12 +86,13 @@ func (dispatch *Dispatch) Run(ctx context.Context) error {
 		default:
 			packets, err := dispatch.stream.ReadPackets(ctx, true)
 			if err != nil {
-				fmt.Printf("ReadPackets failed with Err %T\n", err)
+				log.Error(fmt.Sprintf("ReadPackets failed with Err %T %v", err, err))
 				return err
 			}
 
 			if len(packets) == 0 { // no packets received
 				if time.Since(lastPacket) > dispatch.recvTimeout { // last packet was too long ago
+					log.Error("[Dispatch] receive timed out")
 					return ErrReceiveTimeout
 				}
 			} else {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/signal"
 	"strings"
@@ -17,8 +18,9 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 )
 
-// state for connected meshtastic node
-var state struct {
+// app for connected meshtastic node
+var app struct {
+	log        *slog.Logger
 	dispatch   *meshtastic.Dispatch
 	myNodeInfo *pb.MyNodeInfo
 	nodeInfo   *pb.NodeInfo
@@ -44,8 +46,11 @@ func main() {
 		panic("TARGET_NODE is empty")
 	}
 
+	app.log = slog.New(slog.NewTextHandler(os.Stdout, nil))
+	app.log.Info("Pingbot")
+
 	// Using ConfigId_ConfigOnly to omit full NodeDB sync
-	stream, myNodeInfo, nodeInfo, err := meshtastic.FindAndConnect(ctx, targetNode, time.Second*5, meshtastic.ConfigId_ConfigOnly, nil)
+	stream, myNodeInfo, nodeInfo, err := meshtastic.FindAndConnect(ctx, app.log, targetNode, time.Second*5, meshtastic.ConfigId_ConfigOnly, nil)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			panic("Cannot find target node to connect: " + targetNode)
@@ -55,15 +60,17 @@ func main() {
 	}
 	defer stream.Close()
 
-	state.myNodeInfo = myNodeInfo
-	state.nodeInfo = nodeInfo
+	app.myNodeInfo = myNodeInfo
+	app.nodeInfo = nodeInfo
 
-	// create dispatch on top of that stream,
-	// packet send/receive abstraction with event loop for meshtastic protocol handling
-	state.dispatch = meshtastic.NewDispatch(stream, 100, handlers)
+	// create dispatch,
+	// packet send/receive abstraction with event loop for meshtastic protocol handling,
+	// on top of the stream
+	app.dispatch = meshtastic.NewDispatch(stream, 100, handlers)
 
 	// Dispatch runs till context dies
-	err = state.dispatch.Run(ctx)
+	app.log.Info(fmt.Sprintf("Pingbot connected and running on node !%x", myNodeInfo.MyNodeNum))
+	err = app.dispatch.Run(ctx)
 	if err != nil {
 		if !errors.Is(ctx.Err(), context.Canceled) {
 			panic(err)
@@ -84,7 +91,7 @@ func PingBot(p *pb.FromRadio) {
 		}
 
 		// only process messages addressed to this node directly
-		if pkt.To != state.myNodeInfo.MyNodeNum {
+		if pkt.To != app.myNodeInfo.MyNodeNum {
 			break
 		}
 
@@ -96,7 +103,7 @@ func PingBot(p *pb.FromRadio) {
 
 		if d.Portnum == pb.PortNum_TEXT_MESSAGE_APP {
 			text := string(d.Payload)
-			fmt.Printf("[FromRadio] text message [%d] from !%x: %s\n", pkt.Channel, pkt.From, text)
+			app.log.Info(fmt.Sprintf("[FromRadio] text message [%d] from !%x: %s\n", pkt.Channel, pkt.From, text))
 
 			// ignore replies
 			if d.ReplyId != 0 {
@@ -125,13 +132,13 @@ func PingBot(p *pb.FromRadio) {
 			}
 
 			// either use {stream} or {dispatch} nto send unmanaged packets
-			err := meshtastic.Send(context.TODO(), state.dispatch, &p)
+			err := meshtastic.Send(context.TODO(), app.dispatch, &p)
 			if err != nil {
-				fmt.Printf("Error sending packet: %v\n", err)
+				app.log.Error(fmt.Sprintf("Error sending packet: %v\n", err))
 				break
 			}
 
-			fmt.Println("Sent Echo response.")
+			app.log.Info(fmt.Sprintf("Sent Echo response to !%x", pkt.From))
 		}
 	}
 }

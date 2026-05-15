@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -17,6 +18,7 @@ var (
 
 func ConnectTCP(
 	ctx context.Context,
+	log *slog.Logger,
 	tcpAddr string,
 	wantConfigId uint32,
 	configHandler PacketF,
@@ -28,11 +30,12 @@ func ConnectTCP(
 		return nil, nil, nil, err
 	}
 
-	return createCompletedClient(ctx, tcpAddr, stream, wantConfigId, configHandler)
+	return createCompletedClient(ctx, log, tcpAddr, stream, wantConfigId, configHandler)
 }
 
 func ConnectSerial(
 	ctx context.Context,
+	log *slog.Logger,
 	device string,
 	wantConfigId uint32,
 	configHandler PacketF,
@@ -47,11 +50,12 @@ func ConnectSerial(
 		return nil, nil, nil, err
 	}
 
-	return createCompletedClient(ctx, device, stream, wantConfigId, configHandler)
+	return createCompletedClient(ctx, log, device, stream, wantConfigId, configHandler)
 }
 
 func createCompletedClient(
 	ctx context.Context,
+	log *slog.Logger,
 	target string,
 	pipe libradios.Transport,
 	wantConfigId uint32,
@@ -59,9 +63,10 @@ func createCompletedClient(
 ) (*ProtoStream, *pb.MyNodeInfo, *pb.NodeInfo, error) {
 	stream := &ProtoStream{
 		Transport: pipe,
+		Log:       log,
 	}
 
-	fmt.Println("call Client.intiialize()")
+	stream.Log.Debug("call Client.intiialize()")
 
 	myNodeInfo, responses, err := WantConfigSequence(ctx, stream, wantConfigId, true)
 	if err != nil {
@@ -75,7 +80,7 @@ func createCompletedClient(
 
 	var nodeInfo *pb.NodeInfo
 
-	fmt.Printf("[loadConfigResponse] %d responses\n", len(responses))
+	stream.Log.Debug(fmt.Sprintf("[createCompletedClient] %d responses\n", len(responses)))
 
 	for _, p := range responses {
 
@@ -114,10 +119,10 @@ func createCompletedClient(
 // or node label like {short_name}_{last_bytes_hex} when a resolved node sends Bonjour broadcasts (announce) on the local network.
 // wantConfigId: See PhoneAPI
 // handleConfig: Packet handler before configuration is completed.
-func FindAndConnect(ctx context.Context, targetNode string, timeout time.Duration, wantConfigId uint32, handleConfig PacketF) (*ProtoStream, *pb.MyNodeInfo, *pb.NodeInfo, error) {
+func FindAndConnect(ctx context.Context, log *slog.Logger, targetNode string, timeout time.Duration, wantConfigId uint32, handleConfig PacketF) (*ProtoStream, *pb.MyNodeInfo, *pb.NodeInfo, error) {
 	// serial device is a path
 	if strings.Index(targetNode, "/") == 0 {
-		stream, myNodeInfo, nodeInfo, err := ConnectSerial(ctx, targetNode, wantConfigId, handleConfig)
+		stream, myNodeInfo, nodeInfo, err := ConnectSerial(ctx, log, targetNode, wantConfigId, handleConfig)
 		if err != nil {
 			err := fmt.Errorf("Failed to connect serial '%s': %w", targetNode, err)
 			return nil, nil, nil, err
@@ -128,7 +133,8 @@ func FindAndConnect(ctx context.Context, targetNode string, timeout time.Duratio
 	// non-path target
 	// check if it is IP, IP:port, [IPv6]:port or IPv6
 	if ipEndpoint, isIpEndpoint := libradios.ParseTCPAddress(targetNode, fmt.Sprintf("%d", DefaultPort)); isIpEndpoint {
-		stream, myNodeInfo, nodeInfo, err := ConnectTCP(ctx, ipEndpoint, wantConfigId, handleConfig)
+		log.Info(fmt.Sprintf("Parsed %s as IP endpoint %s", targetNode, ipEndpoint))
+		stream, myNodeInfo, nodeInfo, err := ConnectTCP(ctx, log, ipEndpoint, wantConfigId, handleConfig)
 		if err != nil {
 			err := fmt.Errorf("Failed to connect tcp using discovery '%s': %w", targetNode, err)
 			return nil, nil, nil, err
@@ -139,8 +145,8 @@ func FindAndConnect(ctx context.Context, targetNode string, timeout time.Duratio
 
 	// Non-IP format string, ASSUME: node broadcast on the local network (NOT hostname)
 	// assume NODE number, node Label
-	// discover on LAN using mDNS scan, match by meshtastic node label or hex num
-	fmt.Println("Discover advertised meshtastic nodes on the network")
+	// resolve on LAN using mDNS broadcasts, match by meshtastic node label or hex num
+	log.Info(fmt.Sprintf("[FindAndConnect] Browse advertised meshtastic nodes on the network timeout=%s", timeout))
 
 	timeoutContext, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -148,8 +154,8 @@ func FindAndConnect(ctx context.Context, targetNode string, timeout time.Duratio
 	services := make(chan *libradios.Broadcast)
 	nodes := make(chan *BroadcastNode)
 
-	go libradios.BrowseBroadcasts(timeoutContext, services)
-	go BrowseNodes(timeoutContext, services, nodes)
+	go libradios.BrowseBroadcasts(timeoutContext, log, services)
+	go BrowseNodes(timeoutContext, log, services, nodes)
 
 	for {
 		select {
@@ -162,13 +168,14 @@ func FindAndConnect(ctx context.Context, targetNode string, timeout time.Duratio
 				return nil, nil, nil, ErrBrowseNotFound
 			}
 
-			fmt.Printf("Node: %+v\n", n)
+			log.Debug(fmt.Sprintf("Node: %+v\n", n))
+
 			if !MatchNode(targetNode, n) {
 				continue
 			}
 
-			fmt.Printf("Connect to node %s\n", n.Service.Endpoint)
-			stream, myNodeInfo, nodeInfo, err := ConnectTCP(ctx, n.Service.Endpoint, wantConfigId, handleConfig)
+			log.Debug(fmt.Sprintf("[FindAndConnect] Connect to node %s\n", n.Service.Endpoint))
+			stream, myNodeInfo, nodeInfo, err := ConnectTCP(ctx, log, n.Service.Endpoint, wantConfigId, handleConfig)
 			if err != nil {
 				err := fmt.Errorf("Failed to connect tcp using discovery '%s': %w", targetNode, err)
 				return nil, nil, nil, err

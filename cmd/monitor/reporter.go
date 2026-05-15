@@ -13,7 +13,7 @@ type Reporter struct {
 }
 
 func (reporter *Reporter) Init(ctx context.Context) {
-	reporter.weather = makeWeatherProvider()
+	reporter.weather = makeWeatherProvider(log)
 }
 
 func (reporter *Reporter) Run(ctx context.Context) {
