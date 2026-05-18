@@ -39,9 +39,8 @@ var (
 	senders      = libmetric.AutoCommit{"senders"}
 	chUtil       = libmetric.AutoCommit{"ch_util"}
 	airUtilTx    = libmetric.AutoCommit{"air_util_tx"}
-	rxBad        = libmetric.AutoCommit{"rx_bad"}
 
-	badPacketsBase uint32 = 0
+	oldBadPackets uint32 = 0 // todo clean
 
 	rxRssi            = libmetric.AutoCommit{"rssi"}
 	rxSnr             = libmetric.AutoCommit{"snr"}
@@ -109,15 +108,6 @@ func (r *Reporter) Run(ctx context.Context) {
 				weatherTempC.Update(float64(w.TempCelsiusFeelsLike), labels...)
 			}
 		}
-	}
-
-	labels := []string{"self", fmt.Sprintf("%x", myNodeInfo.MyNodeNum)}
-	if badPacketsBase == 0 {
-		cRxBad, err := libmetric.MakeSeries(rxBad.Name, labels...)
-		if err != nil {
-			appLog.Warn("Failed to MakeSeries for RxBad", "labels", labels)
-		}
-		badPacketsBase = uint32(cRxBad.Value())
 	}
 
 	addRuntime(1)
@@ -258,17 +248,30 @@ func onResponse(pkt *pb.MeshPacket, d *pb.Data, labels []string) {
 		case *pb.Telemetry_LocalStats:
 			appLog.Debug("Local stats received")
 
-			x := t.LocalStats.GetNumPacketsRxBad()
-			appLog.Debug("Received Bad packets", "device", x, "base", badPacketsBase)
+			newBadPackets := t.LocalStats.GetNumPacketsRxBad()
+			appLog.Debug("Received Bad packets", "newBadPackets", newBadPackets, "oldBadPackets", oldBadPackets)
 
-			if x < badPacketsBase {
-				x += badPacketsBase
+			cRxBad, err := libmetric.MakeSeries("rx_bad",
+				"self", fmt.Sprintf("%x", myNodeInfo.MyNodeNum),
+			)
+			if err != nil {
+				appLog.Error("Failed to MakeSeries for rx_bad", "err", err)
+				break
 			}
 
-			if groups[0].Update(&rxBad, float64(x), labels...) {
-				appLog.Debug("Update rxBad metric", "value", x)
-				badPacketsBase = x
+			if oldBadPackets == 0 {
+				oldBadPackets = newBadPackets
+			} else if newBadPackets > oldBadPackets {
+				cRxBad.Add(float64(newBadPackets) - float64(oldBadPackets))
+				err := cRxBad.Commit()
+				if err != nil {
+					appLog.Error("Failed to commit update on rx_bad", "err", err)
+					break
+				}
+
+				oldBadPackets = newBadPackets
 			}
+
 		default:
 			appLog.Debug("Unhandled telemetry type", "replyId", d.ReplyId, "id", pkt.Id, "requestId", d.RequestId)
 		}

@@ -1,3 +1,19 @@
+volumes:
+
+  mesh-metrics:
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: /Users/pony/Documents/mesh-metrics
+
+  grafana:
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: /Users/pony/Documents/grafana
+
 
 services:
 
@@ -5,8 +21,13 @@ services:
     image: victoriametrics/victoria-metrics
     container_name: victoriametrics
     restart: unless-stopped
+    volumes:
+      - mesh-metrics:/mesh-metrics
     ports:
       - 0.0.0.0:8428:8428
+    command:
+      - "-storageDataPath=/mesh-metrics/victoria-metrics-data"
+      - "-retentionPeriod=1y"
 
   grafana:
     image: grafana/grafana
@@ -14,16 +35,21 @@ services:
     restart: unless-stopped
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana:/var/lib/grafana
     ports:
       - 0.0.0.0:3000:3000
 
   monitor:
+    image: ..
     build:
       context: .
       dockerfile: Dockerfile
     env_file: .env
     restart: unless-stopped
     environment:
-      LOG_LEVEL: info
       VICTORIA_METRICS: http://127.0.0.1:8428
+      LOG_LEVEL: info
+      TARGET_NODE: off_off
+      OWM_KEY: 
     network_mode: host
