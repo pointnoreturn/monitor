@@ -71,7 +71,6 @@ func main() {
 	)
 
 	dispatch := meshtastic.NewDispatch(stream, 100, handlePacket)
-	defer dispatch.Close()
 
 	appLog.Info("Running Reporter")
 	reporter.Assign(nodeInfo, myNodeInfo, dispatch)

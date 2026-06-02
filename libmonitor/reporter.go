@@ -108,21 +108,23 @@ func (r *Reporter) Run(ctx context.Context) {
 	}
 
 	updateWeather := func() {
-		if r.weather != nil {
-			w, err := r.weather.GetWeather(ctx)
-			if err != nil {
-				r.logger.Error("[Reporter] updateWeather failed", "err", err)
-			} else {
-				labels := []string{
-					"self", fmt.Sprintf("%x", r.myNodeInfo.MyNodeNum),
-					"location", w.Name,
-				}
-				weatherDifficulty.Update(
-					float64(w.RadioDifficulty()),
-					labels...,
-				)
-				weatherTempC.Update(float64(w.TempCelsiusFeelsLike), labels...)
+		if r.weather == nil {
+			return
+		}
+
+		w, err := r.weather.GetWeather(ctx)
+		if err != nil {
+			r.logger.Error("[Reporter] updateWeather failed", "err", err)
+		} else {
+			labels := []string{
+				"self", fmt.Sprintf("%x", r.myNodeInfo.MyNodeNum),
+				"location", w.Name,
 			}
+			weatherDifficulty.Update(
+				float64(w.RadioDifficulty()),
+				labels...,
+			)
+			weatherTempC.Update(float64(w.TempCelsiusFeelsLike), labels...)
 		}
 	}
 
@@ -153,6 +155,10 @@ func (r *Reporter) Run(ctx context.Context) {
 }
 
 func (r *Reporter) HandlePacket(p *pb.FromRadio) {
+	if r == nil || r.myNodeInfo == nil || r.nodeInfo == nil {
+		return
+	}
+
 	labels := []string{"self", fmt.Sprintf("%x", r.myNodeInfo.MyNodeNum)}
 
 	switch v := p.PayloadVariant.(type) {
