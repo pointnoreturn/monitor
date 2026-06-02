@@ -23,6 +23,7 @@ func makeKey(name string, labels []string) string {
 	return name + "{" + strings.Join(labels, ",") + "}"
 }
 
+// Safe for concurrency, gets a metric once, with its recent value. A unique pointer is then shared per unique metric from MakeSeries.
 func MakeSeries(name string, labels ...string) (*Series, error) {
 	key := makeKey(name, labels)
 

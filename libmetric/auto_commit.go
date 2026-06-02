@@ -1,5 +1,6 @@
 package libmetric
 
+// TODO: Replace with multi-commit task
 type AutoCommit struct {
 	Name string
 }

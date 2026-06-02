@@ -82,6 +82,10 @@ func WriteMetric(name string, value float64, labels ...string) error {
 		return fmt.Errorf("labels must be key/value pairs")
 	}
 
+	if serviceUrl == "" {
+		return ErrNoService
+	}
+
 	var sb strings.Builder
 
 	sb.WriteString(name)
@@ -130,6 +134,9 @@ func WriteMetric(name string, value float64, labels ...string) error {
 }
 
 func WriteMetrics(counters []*Series) error {
+	if serviceUrl == "" {
+		return ErrNoService
+	}
 
 	var sb strings.Builder
 

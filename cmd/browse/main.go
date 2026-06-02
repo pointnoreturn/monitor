@@ -10,25 +10,11 @@ import (
 	"time"
 
 	"github.com/pointnoreturn/monitor/libradios"
+	"github.com/pointnoreturn/monitor/libsupport"
 	"github.com/pointnoreturn/monitor/meshtastic"
 )
 
-var log *slog.Logger
-
-func init() {
-	log = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-		ReplaceAttr: func(
-			groups []string,
-			a slog.Attr,
-		) slog.Attr {
-			if a.Key == slog.TimeKey {
-				return slog.Attr{}
-			}
-			return a
-		},
-	}))
-}
+var log, _ *slog.Logger = libsupport.LoggersFromEnv()
 
 func main() {
 	ctx, stop := signal.NotifyContext(
@@ -40,7 +26,7 @@ func main() {
 	defer stop()
 
 	// browse timeout to wait for node announces
-	timeoutContext, cancel := context.WithTimeout(ctx, time.Second*7)
+	timeoutCtx, cancel := context.WithTimeout(ctx, time.Second*7)
 	defer cancel()
 
 	// Channels for browsing
@@ -56,7 +42,7 @@ func main() {
 			select {
 			case <-ctx.Done():
 				return
-			case <-timeoutContext.Done():
+			case <-timeoutCtx.Done():
 				return
 			case n := <-bn:
 				if n == nil {
@@ -68,8 +54,8 @@ func main() {
 		}
 	}()
 
-	go libradios.BrowseBroadcasts(timeoutContext, log, bs)
-	meshtastic.BrowseNodes(timeoutContext, log, bs, bn)
+	go libradios.BrowseBroadcasts(timeoutCtx, log, bs)
+	meshtastic.BrowseNodes(timeoutCtx, log, bs, bn)
 
 	log.Info(fmt.Sprintf("Total %d meshtastic nodes. Try connect-and-disconnect...", len(allNodes)))
 	if len(allNodes) == 0 {

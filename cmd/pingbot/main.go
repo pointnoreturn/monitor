@@ -12,18 +12,25 @@ import (
 	"time"
 
 	pb "github.com/pointnoreturn/monitor/github.com/meshtastic/go/generated"
+	"github.com/pointnoreturn/monitor/libsupport"
 	"github.com/pointnoreturn/monitor/meshtastic"
 
 	// This blank import triggers the automatic loading of .env
 	_ "github.com/joho/godotenv/autoload"
 )
 
-// app for connected meshtastic node
-var app struct {
-	log        *slog.Logger
+var (
+	targetNode              = os.Getenv("TARGET_NODE")
+	log, _     *slog.Logger = libsupport.LoggersFromEnv()
 	dispatch   *meshtastic.Dispatch
 	myNodeInfo *pb.MyNodeInfo
 	nodeInfo   *pb.NodeInfo
+)
+
+func init() {
+	if len(targetNode) == 0 {
+		panic("TARGET_NODE is empty")
+	}
 }
 
 func main() {
@@ -35,42 +42,33 @@ func main() {
 	)
 	defer stop()
 
-	// define handlers for FromRadio packets
-	handlers := meshtastic.ChainPacketHandlers(
-		PingBot,
+	var (
+		err          error
+		stream       *meshtastic.ProtoStream
+		handlePacket meshtastic.PacketF = meshtastic.ChainPacketHandlers(
+			PingBot,
+		)
 	)
 
-	// Simple syntax to connect to a node either using Network Broadcasts (Bonjour style) scan or raw IP
-	targetNode := os.Getenv("TARGET_NODE")
-	if len(targetNode) == 0 {
-		panic("TARGET_NODE is empty")
-	}
-
-	app.log = slog.New(slog.NewTextHandler(os.Stdout, nil))
-	app.log.Info("Pingbot")
-
 	// Using ConfigId_ConfigOnly to omit full NodeDB sync
-	stream, myNodeInfo, nodeInfo, err := meshtastic.FindAndConnect(ctx, app.log, targetNode, time.Second*5, meshtastic.ConfigId_ConfigOnly, nil)
+	stream, myNodeInfo, nodeInfo, err = meshtastic.FindAndConnect(ctx, log, targetNode, time.Second*5, meshtastic.ConfigId_ConfigOnly, handlePacket)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			panic("Cannot find target node to connect: " + targetNode)
 		}
-
+		log.Error("Connection failed", "err", err)
 		panic(err)
 	}
 	defer stream.Close()
 
-	app.myNodeInfo = myNodeInfo
-	app.nodeInfo = nodeInfo
-
 	// create dispatch,
 	// packet send/receive abstraction with event loop for meshtastic protocol handling,
 	// on top of the stream
-	app.dispatch = meshtastic.NewDispatch(stream, 100, handlers)
+	dispatch = meshtastic.NewDispatch(stream, 100, handlePacket)
 
 	// Dispatch runs till context dies
-	app.log.Info(fmt.Sprintf("Pingbot connected and running on node !%x", myNodeInfo.MyNodeNum))
-	err = app.dispatch.Run(ctx)
+	log.Info(fmt.Sprintf("Pingbot connected and running on node !%x", myNodeInfo.MyNodeNum))
+	err = dispatch.Run(ctx)
 	if err != nil {
 		if !errors.Is(ctx.Err(), context.Canceled) {
 			panic(err)
@@ -91,26 +89,27 @@ func PingBot(p *pb.FromRadio) {
 		}
 
 		// only process messages addressed to this node directly
-		if pkt.To != app.myNodeInfo.MyNodeNum {
+		if pkt.To != myNodeInfo.MyNodeNum {
 			break
 		}
 
-		// encryption removed (must have key)
+		// message must be decrypted already by node
 		d := pkt.GetDecoded()
 		if d == nil {
 			break
 		}
 
+		// text messages
 		if d.Portnum == pb.PortNum_TEXT_MESSAGE_APP {
 			text := string(d.Payload)
-			app.log.Info(fmt.Sprintf("[FromRadio] text message [%d] from !%x: %s\n", pkt.Channel, pkt.From, text))
+			log.Info(fmt.Sprintf("[FromRadio] text message [%d] from !%x: %s\n", pkt.Channel, pkt.From, text))
 
 			// ignore replies
 			if d.ReplyId != 0 {
 				break
 			}
 
-			// test if this is a Ping request
+			// test if this is a Ping request like /ping !ping or ping, etc
 			if i := strings.Index(strings.ToLower(text), "ping"); i < 0 || i > 2 {
 				// message is not /ping or "Ping" or "!Ping"
 				break
@@ -131,14 +130,14 @@ func PingBot(p *pb.FromRadio) {
 				},
 			}
 
-			// either use {stream} or {dispatch} nto send unmanaged packets
-			err := meshtastic.Send(context.TODO(), app.dispatch, &p)
+			// send over dispatch/stream
+			err := meshtastic.Send(context.TODO(), dispatch, &p)
 			if err != nil {
-				app.log.Error(fmt.Sprintf("Error sending packet: %v\n", err))
+				log.Error(fmt.Sprintf("Error sending packet: %v\n", err))
 				break
 			}
 
-			app.log.Info(fmt.Sprintf("Sent Echo response to !%x", pkt.From))
+			log.Info(fmt.Sprintf("Sent Ping response to !%x", pkt.From))
 		}
 	}
 }

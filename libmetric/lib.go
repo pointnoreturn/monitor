@@ -1,6 +1,7 @@
 package libmetric
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 )
@@ -8,6 +9,8 @@ import (
 var (
 	serviceUrl string
 	logger     *slog.Logger
+
+	ErrNoService error = errors.New("serviceUrl was not initialized with libmetric.Init()")
 )
 
 func Init(url string, log *slog.Logger) {

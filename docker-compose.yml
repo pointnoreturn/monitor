@@ -41,7 +41,7 @@ services:
       - 0.0.0.0:3000:3000
 
   monitor:
-    image: ..
+    image: gchr.io/pointnoreturn/mesh-monitor:1.4.0
     build:
       context: .
       dockerfile: Dockerfile

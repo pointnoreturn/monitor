@@ -126,25 +126,25 @@ func (dispatch *Dispatch) WritePacket(ctx context.Context, p *pb.ToRadio) error 
 	}
 }
 
-func (dispatch *Dispatch) ReadPackets(ctx context.Context, timeout bool) (packets []*pb.FromRadio, err error) {
-	if !timeout {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case packet := <-dispatch.recvQueue:
-			return []*pb.FromRadio{packet}, nil
-		}
-	} else {
-		t := time.NewTicker(time.Second * 5)
-		packets := []*pb.FromRadio{}
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case p := <-dispatch.recvQueue:
-			packets = append(packets, p)
-		case <-t.C:
-			return packets, nil
-		}
-		return packets, nil
-	}
-}
+// func (dispatch *Dispatch) ReadPackets(ctx context.Context, timeout bool) (packets []*pb.FromRadio, err error) {
+// 	if !timeout {
+// 		select {
+// 		case <-ctx.Done():
+// 			return nil, ctx.Err()
+// 		case packet := <-dispatch.recvQueue:
+// 			return []*pb.FromRadio{packet}, nil
+// 		}
+// 	} else {
+// 		t := time.NewTicker(time.Second * 5)
+// 		packets := []*pb.FromRadio{}
+// 		select {
+// 		case <-ctx.Done():
+// 			return nil, ctx.Err()
+// 		case p := <-dispatch.recvQueue:
+// 			packets = append(packets, p)
+// 		case <-t.C:
+// 			return packets, nil
+// 		}
+// 		return packets, nil
+// 	}
+// }

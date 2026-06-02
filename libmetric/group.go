@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// TODO: Remove
 type Group struct {
 	Interval      time.Duration
 	pendingWrites map[string]*Series

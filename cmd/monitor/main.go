@@ -9,21 +9,34 @@ import (
 	"syscall"
 	"time"
 
-	pb "github.com/pointnoreturn/monitor/github.com/meshtastic/go/generated"
+	"github.com/pointnoreturn/monitor/libmetric"
+	"github.com/pointnoreturn/monitor/libmonitor"
+	"github.com/pointnoreturn/monitor/libsupport"
 	"github.com/pointnoreturn/monitor/meshtastic"
 
 	// This blank import triggers the automatic loading of .env
+
 	_ "github.com/joho/godotenv/autoload"
 )
 
 var (
-	stream     *meshtastic.ProtoStream
-	dispatch   *meshtastic.Dispatch
-	myNodeInfo *pb.MyNodeInfo
-	nodeInfo   *pb.NodeInfo
-	db         DB
-	reporter   Reporter
+	victoriaMetricsUrl = os.Getenv("VICTORIA_METRICS")
+	targetNode         = os.Getenv("TARGET_NODE")
+	appLog, libLog     = libsupport.LoggersFromEnv()
 )
+
+func init() {
+	if victoriaMetricsUrl == "" {
+		slog.Error("VICTORIA_METRICS is empty")
+		os.Exit(3)
+	}
+	libmetric.Init(victoriaMetricsUrl, libLog)
+
+	if len(targetNode) == 0 {
+		slog.Error("TARGET_NODE is empty")
+		os.Exit(3)
+	}
+}
 
 func main() {
 	ctx, stop := signal.NotifyContext(
@@ -34,29 +47,18 @@ func main() {
 	)
 	defer stop()
 
-	handlers := meshtastic.ChainPacketHandlers(
-		//printPacket,
-		db.HandlePacket,
-		reporter.HandlePacket,
+	var (
+		reporter                        = libmonitor.NewReporter(ctx, appLog)
+		handlePacket meshtastic.PacketF = reporter.HandlePacket
 	)
 
-	targetNode := os.Getenv("TARGET_NODE")
-	if len(targetNode) == 0 {
-		slog.Error("TARGET_NODE is empty")
-		os.Exit(3)
-	}
-
-	db.Init(ctx)
-	reporter.Init(ctx)
-
-	var err error
-
-	stream, myNodeInfo, nodeInfo, err = meshtastic.FindAndConnect(ctx, libLog, targetNode, time.Second*10, meshtastic.ConfigId_ConfigOnly, db.HandlePacket)
+	stream, myNodeInfo, nodeInfo, err := meshtastic.FindAndConnect(ctx, libLog, targetNode, time.Second*10, meshtastic.ConfigId_ConfigOnly, handlePacket)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			appLog.Error("Cannot find target node to connect: " + targetNode)
 			os.Exit(2)
 		}
+		appLog.Error("Connection failed", "err", err)
 		panic(err)
 	}
 	defer stream.Close()
@@ -68,12 +70,14 @@ func main() {
 		"pio_env", myNodeInfo.PioEnv,
 	)
 
-	dispatch = meshtastic.NewDispatch(stream, 100, handlers)
+	dispatch := meshtastic.NewDispatch(stream, 100, handlePacket)
+	defer dispatch.Close()
 
-	go db.Run(ctx)
+	appLog.Info("Running Reporter")
+	reporter.Assign(nodeInfo, myNodeInfo, dispatch)
 	go reporter.Run(ctx)
 
-	appLog.Info("Monitor dispatch running")
+	appLog.Info("Running Dispatch")
 	err = dispatch.Run(ctx)
 	if err != nil {
 		if !errors.Is(ctx.Err(), context.Canceled) {

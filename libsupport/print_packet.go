@@ -1,4 +1,4 @@
-package main
+package libsupport
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 	"github.com/pointnoreturn/monitor/meshtastic"
 )
 
-func printPacket(p *pb.FromRadio) {
+func PrintPacket(p *pb.FromRadio) {
 	switch v := p.PayloadVariant.(type) {
 
 	// case *pb.FromRadio_QueueStatus: // Ignore connection status metadata (heartbeat related)

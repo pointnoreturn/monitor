@@ -84,6 +84,7 @@ var (
 	}
 )
 
+// TODO: Rename, use with Set() as interface?
 type Sampler struct {
 	Name     string
 	MinCount int
