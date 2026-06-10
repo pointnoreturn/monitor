@@ -178,6 +178,11 @@ func (r *Monitor) HandlePacket(p *pb.FromRadio) {
 			break
 		}
 
+		// ignore for UDP-injected packets (UDP broadcast over network)
+		if pkt.GetRxSnr() == 0 && pkt.GetRxRssi() == 0 {
+			break
+		}
+
 		logRX(pkt, labels)
 		logDirect(pkt, labels)
 		logContent(pkt, labels)
