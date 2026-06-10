@@ -151,7 +151,7 @@ func FindAndConnect(ctx context.Context, log *slog.Logger, targetNode string, ti
 	timeoutContext, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	services := make(chan *libradios.Broadcast)
+	services := make(chan *libradios.BroadcastService)
 	nodes := make(chan *BroadcastNode)
 
 	go libradios.BrowseBroadcasts(timeoutContext, log, services)

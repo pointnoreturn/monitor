@@ -10,7 +10,7 @@ import (
 	"github.com/pointnoreturn/monitor/libradios"
 )
 
-func BrowseNodes(ctx context.Context, log *slog.Logger, inBroadcasts chan *libradios.Broadcast, outNode chan *BroadcastNode) {
+func BrowseNodes(ctx context.Context, log *slog.Logger, inBroadcasts chan *libradios.BroadcastService, outNode chan *BroadcastNode) {
 	defer close(outNode)
 
 	for {

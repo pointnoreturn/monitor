@@ -11,7 +11,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-func BrowseBroadcasts(ctx context.Context, log *slog.Logger, outService chan *Broadcast) error {
+func BrowseBroadcasts(ctx context.Context, log *slog.Logger, outService chan *BroadcastService) error {
 	defer close(outService)
 
 	entries := make(chan *zeroconf.ServiceEntry)
@@ -44,7 +44,7 @@ func BrowseBroadcasts(ctx context.Context, log *slog.Logger, outService chan *Br
 				args = make(map[string]string)
 			}
 
-			outService <- &Broadcast{
+			outService <- &BroadcastService{
 				Endpoint: endpoint,
 				Entry:    e,
 				Args:     args,

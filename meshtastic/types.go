@@ -10,10 +10,10 @@ type Reader libradios.Reader[*pb.FromRadio]
 
 // reference of a Bonjour discovered Meshtastic node
 type BroadcastNode struct {
-	Service   *libradios.Broadcast // bonjour header
-	NodeNum   uint32               // node number
-	ShortName string               // short name, if set
-	Label     string               // replicate phone app label of a network node SHRT_nnnn or nnnn_nnnn
+	Service   *libradios.BroadcastService // bonjour header
+	NodeNum   uint32                      // node number
+	ShortName string                      // short name, if set
+	Label     string                      // replicate phone app label of a network node SHRT_nnnn or nnnn_nnnn
 }
 
 type PacketF func(*pb.FromRadio)
