@@ -16,6 +16,8 @@ const heartbeatInterval = time.Second * 15
 // default timeout for "should have received anything"
 const receiveTimeout = time.Minute * 5
 
+const defaultSendBuffer int = 100
+
 var (
 	// checks socket is alive and radio is active it will fail if not for some period
 	ErrReceiveTimeout = errors.New("Waiting for packet receive timed         out")
@@ -35,13 +37,13 @@ type Dispatch struct {
 	recvQueue    chan *pb.FromRadio // ReadPackets synchronous implemeted as a waiter for channel populated in Run() if someone is waiting
 }
 
-// make a new dispatch on the compatible connection (one per connection)
-func NewDispatch(stream *ProtoStream, sendBuffer int, handler PacketF) *Dispatch {
+// make a new dispatch on the compatible connection (stream)
+func NewDispatch(stream *ProtoStream, handler PacketF) *Dispatch {
 	return &Dispatch{
 		stream:       stream,
 		HandlePacket: handler,
 		recvTimeout:  receiveTimeout,
-		sendQueue:    make(chan *pb.ToRadio, sendBuffer),
+		sendQueue:    make(chan *pb.ToRadio, defaultSendBuffer),
 		recvQueue:    make(chan *pb.FromRadio),
 	}
 }

@@ -14,7 +14,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-type Reporter struct {
+type Monitor struct {
 	logger     *slog.Logger
 	weather    libweather.WeatherProvider
 	nodeInfo   *pb.NodeInfo
@@ -22,16 +22,16 @@ type Reporter struct {
 	writer     meshtastic.Writer
 }
 
-func NewReporter(ctx context.Context, logger *slog.Logger) *Reporter {
+func NewMonitor(ctx context.Context, logger *slog.Logger) *Monitor {
 	w := makeWeatherProvider(logger)
 
-	return &Reporter{
+	return &Monitor{
 		weather: w,
 		logger:  logger,
 	}
 }
 
-func (r *Reporter) Assign(nodeInfo *pb.NodeInfo, myNodeInfo *pb.MyNodeInfo, writer meshtastic.Writer) {
+func (r *Monitor) Assign(nodeInfo *pb.NodeInfo, myNodeInfo *pb.MyNodeInfo, writer meshtastic.Writer) {
 	r.myNodeInfo = myNodeInfo
 	r.nodeInfo = nodeInfo
 	r.writer = writer
@@ -67,7 +67,7 @@ var (
 	}
 )
 
-func (r *Reporter) Run(ctx context.Context) {
+func (r *Monitor) Run(ctx context.Context) {
 	t0 := groups[0].Ticker()
 	t1 := groups[1].Ticker()
 	t2 := groups[2].Ticker()
@@ -76,7 +76,7 @@ func (r *Reporter) Run(ctx context.Context) {
 	commitGroup := func(groupId int) {
 		// Todo: batch API request
 		if ok := groups[groupId].Commit(); !ok {
-			r.logger.Error("[Reporter] commitGroup failed")
+			r.logger.Error("[Monitor] commitGroup failed")
 		}
 	}
 
@@ -88,7 +88,7 @@ func (r *Reporter) Run(ctx context.Context) {
 			"hw", strconv.Itoa(int(r.nodeInfo.User.HwModel)),
 		)
 		if !ok {
-			r.logger.Error("[Reporter] addRuntime failed")
+			r.logger.Error("[Monitor] addRuntime failed")
 		}
 	}
 
@@ -114,7 +114,7 @@ func (r *Reporter) Run(ctx context.Context) {
 
 		w, err := r.weather.GetWeather(ctx)
 		if err != nil {
-			r.logger.Error("[Reporter] updateWeather failed", "err", err)
+			r.logger.Error("[Monitor] updateWeather failed", "err", err)
 		} else {
 			labels := []string{
 				"self", fmt.Sprintf("%x", r.myNodeInfo.MyNodeNum),
@@ -154,7 +154,7 @@ func (r *Reporter) Run(ctx context.Context) {
 	}
 }
 
-func (r *Reporter) HandlePacket(p *pb.FromRadio) {
+func (r *Monitor) HandlePacket(p *pb.FromRadio) {
 	if r == nil || r.myNodeInfo == nil || r.nodeInfo == nil {
 		return
 	}
@@ -249,7 +249,7 @@ func logContent(pkt *pb.MeshPacket, labels []string) {
 	groups[0].AddOne(&totalDecoded, labels...)
 }
 
-func (r *Reporter) handleResponse(pkt *pb.MeshPacket, d *pb.Data, labels []string) {
+func (r *Monitor) handleResponse(pkt *pb.MeshPacket, d *pb.Data, labels []string) {
 	labels = cloneLabels(labels)
 
 	switch d.Portnum {

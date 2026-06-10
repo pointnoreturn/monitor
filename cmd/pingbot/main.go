@@ -21,7 +21,7 @@ import (
 
 var (
 	targetNode              = os.Getenv("TARGET_NODE")
-	log, _     *slog.Logger = libsupport.LoggersFromEnv()
+	mainLog, _ *slog.Logger = libsupport.LoggersFromEnv()
 	dispatch   *meshtastic.Dispatch
 	myNodeInfo *pb.MyNodeInfo
 	nodeInfo   *pb.NodeInfo
@@ -50,35 +50,32 @@ func main() {
 		)
 	)
 
-	// Using ConfigId_ConfigOnly to omit full NodeDB sync
-	stream, myNodeInfo, nodeInfo, err = meshtastic.FindAndConnect(ctx, log, targetNode, time.Second*5, meshtastic.ConfigId_ConfigOnly, handlePacket)
+	stream, myNodeInfo, nodeInfo, err = meshtastic.FindAndConnect(ctx, mainLog, targetNode, time.Second*5, meshtastic.ConfigId_ConfigOnly, handlePacket)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			panic("Cannot find target node to connect: " + targetNode)
 		}
-		log.Error("Connection failed", "err", err)
+		mainLog.Error("Connection failed", "err", err)
 		panic(err)
 	}
 	defer stream.Close()
 
-	// create dispatch,
-	// packet send/receive abstraction with event loop for meshtastic protocol handling,
-	// on top of the stream
-	dispatch = meshtastic.NewDispatch(stream, 100, handlePacket)
+	mainLog.Info(fmt.Sprintf("Connected to node !%x", myNodeInfo.GetMyNodeNum()))
 
-	// Dispatch runs till context dies
-	log.Info(fmt.Sprintf("Pingbot connected and running on node !%x", myNodeInfo.MyNodeNum))
+	dispatch = meshtastic.NewDispatch(stream, handlePacket)
+	mainLog.Info("Running dispatch")
 	err = dispatch.Run(ctx)
 	if err != nil {
 		if !errors.Is(ctx.Err(), context.Canceled) {
+			mainLog.Error("Fatal error", "err", err)
 			panic(err)
 		}
 	}
 }
 
 // ping bot is a packet handler
-func PingBot(p *pb.FromRadio) {
-	switch v := p.PayloadVariant.(type) {
+func PingBot(inp *pb.FromRadio) {
+	switch v := inp.PayloadVariant.(type) {
 	case *pb.FromRadio_Packet:
 		pkt := v.Packet
 
@@ -89,7 +86,7 @@ func PingBot(p *pb.FromRadio) {
 		}
 
 		// only process messages addressed to this node directly
-		if pkt.To != myNodeInfo.MyNodeNum {
+		if pkt.To != myNodeInfo.GetMyNodeNum() {
 			break
 		}
 
@@ -99,45 +96,48 @@ func PingBot(p *pb.FromRadio) {
 			break
 		}
 
-		// text messages
-		if d.Portnum == pb.PortNum_TEXT_MESSAGE_APP {
-			text := string(d.Payload)
-			log.Info(fmt.Sprintf("[FromRadio] text message [%d] from !%x: %s\n", pkt.Channel, pkt.From, text))
+		// text messages only
+		if d.GetPortnum() != pb.PortNum_TEXT_MESSAGE_APP {
+			break
+		}
 
-			// ignore replies
-			if d.ReplyId != 0 {
-				break
-			}
+		text := string(d.GetPayload())
+		mainLog.Info(fmt.Sprintf("[FromRadio] text message [%d] from !%x: %s\n", pkt.GetChannel(), pkt.GetFrom(), text))
 
-			// test if this is a Ping request like /ping !ping or ping, etc
-			if i := strings.Index(strings.ToLower(text), "ping"); i < 0 || i > 2 {
-				// message is not /ping or "Ping" or "!Ping"
-				break
-			}
+		// ignore replies
+		if d.ReplyId != 0 {
+			break
+		}
 
-			p := pb.ToRadio{
-				PayloadVariant: &pb.ToRadio_Packet{
-					Packet: &pb.MeshPacket{
-						To: pkt.From,
-						PayloadVariant: &pb.MeshPacket_Decoded{
-							Decoded: &pb.Data{
-								Portnum: pb.PortNum_TEXT_MESSAGE_APP,
-								ReplyId: pkt.Id,
-								Payload: []byte("Pong"),
-							},
+		// test if this is a Ping request like /ping !ping or ping, etc
+		if i := strings.Index(strings.ToLower(text), "ping"); i < 0 || i > 2 {
+			// message is not /ping or "Ping" or "!Ping"
+			break
+		}
+
+		outp := pb.ToRadio{
+			PayloadVariant: &pb.ToRadio_Packet{
+				Packet: &pb.MeshPacket{
+					To:      pkt.From,
+					Channel: pkt.GetChannel(),
+					PayloadVariant: &pb.MeshPacket_Decoded{
+						Decoded: &pb.Data{
+							Portnum: pb.PortNum_TEXT_MESSAGE_APP,
+							ReplyId: pkt.GetId(),
+							Payload: []byte("Pong"),
 						},
 					},
 				},
-			}
+			},
+		}
 
-			// send over dispatch/stream
-			err := meshtastic.Send(context.TODO(), dispatch, &p)
-			if err != nil {
-				log.Error(fmt.Sprintf("Error sending packet: %v\n", err))
-				break
-			}
+		mainLog.Info(fmt.Sprintf("Send Ping response to !%x", pkt.GetFrom()))
 
-			log.Info(fmt.Sprintf("Sent Ping response to !%x", pkt.From))
+		err := meshtastic.Send(context.TODO(), dispatch, &outp)
+
+		if err != nil {
+			mainLog.Error(fmt.Sprintf("Error sending packet for ping response: %v\n", err))
+			break
 		}
 	}
 }

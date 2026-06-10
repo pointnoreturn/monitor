@@ -12,7 +12,7 @@ import (
 // #define SPECIAL_NONCE_ONLY_CONFIG 69420
 // #define SPECIAL_NONCE_ONLY_NODES 69421 // ( ͡° ͜ʖ ͡°)
 const ConfigId_OnlyNodes = 69421
-const ConfigId_ConfigOnly = 69420
+const ConfigId_ConfigOnly = 69420 // Using ConfigId_ConfigOnly to omit full NodeDB sync
 
 // send a heartbeat, node will send a response to keep connection alive if needed
 // in TCP, losing connection may remain undetected without trying send anything.

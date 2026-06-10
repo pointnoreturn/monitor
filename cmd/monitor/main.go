@@ -48,8 +48,8 @@ func main() {
 	defer stop()
 
 	var (
-		reporter                        = libmonitor.NewReporter(ctx, appLog)
-		handlePacket meshtastic.PacketF = reporter.HandlePacket
+		monitor                         = libmonitor.NewMonitor(ctx, appLog)
+		handlePacket meshtastic.PacketF = monitor.HandlePacket
 	)
 
 	stream, myNodeInfo, nodeInfo, err := meshtastic.FindAndConnect(ctx, libLog, targetNode, time.Second*10, meshtastic.ConfigId_ConfigOnly, handlePacket)
@@ -70,11 +70,11 @@ func main() {
 		"pio_env", myNodeInfo.PioEnv,
 	)
 
-	dispatch := meshtastic.NewDispatch(stream, 100, handlePacket)
+	dispatch := meshtastic.NewDispatch(stream, handlePacket)
 
-	appLog.Info("Running Reporter")
-	reporter.Assign(nodeInfo, myNodeInfo, dispatch)
-	go reporter.Run(ctx)
+	appLog.Info("Running Monitor")
+	monitor.Assign(nodeInfo, myNodeInfo, dispatch)
+	go monitor.Run(ctx)
 
 	appLog.Info("Running Dispatch")
 	err = dispatch.Run(ctx)
