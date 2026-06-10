@@ -72,21 +72,22 @@ func MatchNode(target string, n *BroadcastNode) bool {
 	return false
 }
 
-// try get approximate (!) number of hops on the received mesh packet
+// number of hops spent on the received mesh packet.
+// Hop limit spending is logical, not actual physical rebroadcast count
 func HopsAway(pkt *pb.MeshPacket) uint32 {
-	if pkt.HopStart == 0 {
+	if pkt.GetHopStart() == 0 {
 		return 0
-	} else if pkt.HopLimit > pkt.HopStart {
-		return pkt.HopLimit
+	} else if pkt.GetHopLimit() > pkt.GetHopStart() {
+		return pkt.GetHopLimit()
 	}
-	return pkt.HopStart - pkt.HopLimit
+	return pkt.GetHopStart() - pkt.GetHopLimit()
 }
 
 // helper to chain packet handlers in a row
 func ChainPacketHandlers(handlers ...PacketF) PacketF {
-	return func(p *pb.FromRadio) {
+	return func(inp *pb.FromRadio) {
 		for _, h := range handlers {
-			h(p)
+			h(inp)
 		}
 	}
 }
