@@ -154,48 +154,48 @@ func (r *Monitor) Run(ctx context.Context) {
 	}
 }
 
-func (r *Monitor) HandlePacket(p *pb.FromRadio) {
+func (r *Monitor) HandlePacket(inp *pb.FromRadio) {
 	if r == nil || r.myNodeInfo == nil || r.nodeInfo == nil {
 		return
 	}
 
 	labels := []string{"self", fmt.Sprintf("%x", r.myNodeInfo.GetMyNodeNum())}
 
-	switch v := p.PayloadVariant.(type) {
+	switch v := inp.PayloadVariant.(type) {
 
 	case *pb.FromRadio_Packet:
-		pkt := v.Packet
+		inpkt := v.Packet
 
-		if pkt.GetFrom() == 0 {
+		if inpkt.GetFrom() == 0 {
 			// fishy..
 			break
 		}
 
-		if pkt.GetFrom() == r.myNodeInfo.GetMyNodeNum() {
-			if d := pkt.GetDecoded(); d != nil {
+		if inpkt.GetFrom() == r.myNodeInfo.GetMyNodeNum() {
+			if d := inpkt.GetDecoded(); d != nil {
 				if d.GetReplyId() != 0 || d.GetRequestId() != 0 {
-					r.handleResponse(pkt, d, labels)
+					r.handleResponse(inpkt, d, labels)
 				}
 			}
 		}
 
-		if pkt.GetFrom() == r.myNodeInfo.GetMyNodeNum() {
+		if inpkt.GetFrom() == r.myNodeInfo.GetMyNodeNum() {
 			break
 		}
 
 		// ignore for UDP-injected packets (UDP broadcast over network)
-		if pkt.GetRxSnr() == 0 && pkt.GetRxRssi() == 0 {
+		if !isRealistic(inpkt) {
 			break
 		}
 
-		logRX(pkt, labels)
-		logDirect(pkt, labels)
-		logContent(pkt, labels)
-		logSenders(pkt, labels)
+		logRX(inpkt, labels)
+		logDirect(inpkt, labels)
+		logContent(inpkt, labels)
+		logSenders(inpkt, labels)
 	case *pb.FromRadio_QueueStatus:
 		break // ignore
 	default:
-		r.log.Warn("Unknown packet type", "type", fmt.Sprintf("%T", p.PayloadVariant))
+		r.log.Warn("Unknown packet type", "type", fmt.Sprintf("%T", inp.PayloadVariant))
 	}
 }
 
@@ -225,6 +225,11 @@ func logRX(inpkt *pb.MeshPacket, labels []string) {
 	groups[0].AddOne(&totalRX, labels...)
 }
 
+func isRealistic(inpkt *pb.MeshPacket) bool {
+	return inpkt.GetRxRssi() != 0 && inpkt.GetRxRssi() < -20 &&
+		inpkt.GetRxSnr() < 20 && inpkt.GetRxSnr() != 0 && inpkt.GetRxSnr() != -32
+}
+
 func logDirect(inpkt *pb.MeshPacket, labels []string) {
 	if len(labels) == 0 {
 		return
@@ -236,9 +241,8 @@ func logDirect(inpkt *pb.MeshPacket, labels []string) {
 		return
 	}
 
-	isRealistic := inpkt.GetRxRssi() < -20 && inpkt.GetRxSnr() < 20 && inpkt.GetRxRssi() != 0 && inpkt.GetRxSnr() != 0
 	isStrong := inpkt.GetRxRssi() > -105 && inpkt.GetRxSnr() > -5
-	labels = append(labels, "strong", boolStr[isRealistic && isStrong])
+	labels = append(labels, "strong", boolStr[isRealistic(inpkt) && isStrong])
 	groups[0].AddOne(&rxDirect, labels...)
 }
 
